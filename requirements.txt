@@ -1,0 +1,5 @@
+telethon==1.36.0
+python-dateutil==2.9.0
+gspread==6.1.4
+google-auth==2.38.0
+python-dotenv==1.0.1

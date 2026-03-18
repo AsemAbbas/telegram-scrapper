@@ -1,0 +1,9 @@
+{
+  "default_hours": 24,
+  "channels": [
+    {
+      "name": "DarbMirror",
+      "hours_back": 24
+    }
+  ]
+}
