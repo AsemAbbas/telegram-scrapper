@@ -3,7 +3,10 @@
   "channels": [
     {
       "name": "QudsN",
-      "hours_back": 24
+      "hours_back": 24,
+      "use_date_range": true,
+      "from_date_str": "2023-10-07T01:00",
+      "to_date_str": "2026-03-19T20:46"
     }
   ]
 }

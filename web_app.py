@@ -11,6 +11,8 @@ from pathlib import Path
 
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO, emit
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 from src.config import load_channels, TG_API_ID, TG_API_HASH, TG_PHONE, TG_SESSION_NAME, SHEET_ID
 from src.sheets import push_to_sheets
@@ -29,8 +31,94 @@ scrape_status = {
     "current_channel": "",
     "messages": [],
     "results": [],
-    "error": None
+    "error": None,
+    "kill_requested": False
 }
+
+# Scheduler state
+scheduler = BackgroundScheduler()
+scheduler_config = {
+    "enabled": False,
+    "time": "08:00",
+    "interval_hours": None,  # None = daily at time, number = every X hours
+    "last_run": None,
+    "next_run": None
+}
+SCHEDULER_CONFIG_FILE = Path(__file__).parent / "scheduler_config.json"
+
+
+def load_scheduler_config():
+    """Load scheduler config from file."""
+    global scheduler_config
+    if SCHEDULER_CONFIG_FILE.exists():
+        try:
+            with open(SCHEDULER_CONFIG_FILE, 'r') as f:
+                saved = json.load(f)
+                scheduler_config.update(saved)
+        except:
+            pass
+    return scheduler_config
+
+
+def save_scheduler_config():
+    """Save scheduler config to file."""
+    with open(SCHEDULER_CONFIG_FILE, 'w') as f:
+        json.dump(scheduler_config, f, indent=2)
+
+
+def scheduled_scrape():
+    """Run scraper on schedule."""
+    if scrape_status["running"]:
+        print("[Scheduler] Scraper already running, skipping...")
+        return
+    
+    print(f"[Scheduler] Starting scheduled scrape at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    scheduler_config["last_run"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    save_scheduler_config()
+    
+    channels = load_channels()
+    if channels:
+        thread = threading.Thread(target=run_scraper_async, args=(channels, True))
+        thread.daemon = True
+        thread.start()
+
+
+def setup_scheduler():
+    """Setup the scheduler based on config."""
+    global scheduler
+    
+    # Remove existing jobs
+    scheduler.remove_all_jobs()
+    
+    if not scheduler_config["enabled"]:
+        scheduler_config["next_run"] = None
+        return
+    
+    if scheduler_config["interval_hours"]:
+        # Interval mode: every X hours
+        scheduler.add_job(
+            scheduled_scrape,
+            'interval',
+            hours=scheduler_config["interval_hours"],
+            id='scrape_job'
+        )
+        next_run = datetime.now() + timedelta(hours=scheduler_config["interval_hours"])
+    else:
+        # Daily mode: at specific time
+        hour, minute = map(int, scheduler_config["time"].split(':'))
+        scheduler.add_job(
+            scheduled_scrape,
+            CronTrigger(hour=hour, minute=minute),
+            id='scrape_job'
+        )
+        # Calculate next run
+        now = datetime.now()
+        next_run = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if next_run <= now:
+            next_run += timedelta(days=1)
+    
+    scheduler_config["next_run"] = next_run.strftime("%Y-%m-%d %H:%M:%S")
+    save_scheduler_config()
 
 
 def log_message(msg, msg_type="info"):
@@ -41,6 +129,11 @@ def log_message(msg, msg_type="info"):
 
 async def scrape_channel_simple(client, channel_name, from_date, to_date, log_fn):
     """Simplified scraper that works within the web context."""
+    # Check kill switch
+    if scrape_status["kill_requested"]:
+        log_fn("Kill switch activated - stopping", "warning")
+        return []
+    
     entity = await client.get_entity(channel_name)
     username = getattr(entity, "username", None) or str(channel_name)
     title = getattr(entity, "title", username)
@@ -53,6 +146,11 @@ async def scrape_channel_simple(client, channel_name, from_date, to_date, log_fn
     BATCH_SIZE = 200
     
     while True:
+        # Check kill switch on each batch
+        if scrape_status["kill_requested"]:
+            log_fn("Kill switch activated - stopping mid-scrape", "warning")
+            break
+        
         batch_num += 1
         try:
             kwargs = {"limit": BATCH_SIZE}
@@ -177,7 +275,10 @@ async def run_scraper_coroutine(channels_config, push_to_sheet, log_fn):
         scrape_status["progress"] = progress
         socketio.emit('status', {"running": True, "progress": progress, "channel": ch["name"]})
         
-        log_fn(f"Scraping: {ch['name']} (last {ch['hours_back']}h)...")
+        if ch.get('use_date_range'):
+            log_fn(f"Scraping: {ch['name']} ({ch['from_date'].strftime('%Y-%m-%d %H:%M')} → {ch['to_date'].strftime('%Y-%m-%d %H:%M')})...")
+        else:
+            log_fn(f"Scraping: {ch['name']} (last {ch['hours_back']}h)...")
         
         try:
             rows = await scrape_channel_simple(client, ch["name"], ch["from_date"], ch["to_date"], log_fn)
@@ -220,6 +321,7 @@ async def run_scraper_coroutine(channels_config, push_to_sheet, log_fn):
 
 def run_scraper_async(channels_config, push_to_sheet=True):
     """Run the scraper in a background thread."""
+    global scheduler_config
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
@@ -231,6 +333,7 @@ def run_scraper_async(channels_config, push_to_sheet=True):
         scrape_status["messages"] = []
         scrape_status["results"] = []
         scrape_status["error"] = None
+        scrape_status["kill_requested"] = False  # Reset kill switch
         
         socketio.emit('status', {"running": True, "progress": 0})
         
@@ -240,6 +343,11 @@ def run_scraper_async(channels_config, push_to_sheet=True):
         
         scrape_status["progress"] = 100
         log_message(f"Done! Total: {len(all_rows)} messages from {len(channels_config)} channel(s)", "success")
+        
+        # Update last_run timestamp
+        scheduler_config["last_run"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        save_scheduler_config()
+        socketio.emit('scheduler_update', scheduler_config)
         
     except Exception as e:
         scrape_status["error"] = str(e)
@@ -275,9 +383,22 @@ def save_channels():
     data = request.json
     channels_path = Path(__file__).parent / "channels.json"
     
+    # Clean up channel data for saving
+    channels_to_save = []
+    for ch in data.get("channels", []):
+        channel_data = {
+            "name": ch.get("name", ""),
+            "hours_back": ch.get("hours_back", 24),
+            "use_date_range": ch.get("use_date_range", False),
+        }
+        if ch.get("use_date_range"):
+            channel_data["from_date_str"] = ch.get("from_date_str", "")
+            channel_data["to_date_str"] = ch.get("to_date_str", "")
+        channels_to_save.append(channel_data)
+    
     config = {
         "default_hours": data.get("default_hours", 24),
-        "channels": data.get("channels", [])
+        "channels": channels_to_save
     }
     
     with open(channels_path, 'w', encoding='utf-8') as f:
@@ -314,9 +435,69 @@ def get_status():
     return jsonify(scrape_status)
 
 
+@app.route('/api/scheduler', methods=['GET'])
+def get_scheduler():
+    """Get scheduler configuration."""
+    load_scheduler_config()
+    return jsonify(scheduler_config)
+
+
+@app.route('/api/scheduler', methods=['POST'])
+def update_scheduler():
+    """Update scheduler configuration."""
+    global scheduler_config
+    data = request.json
+    
+    scheduler_config["enabled"] = data.get("enabled", False)
+    scheduler_config["time"] = data.get("time", "08:00")
+    scheduler_config["interval_hours"] = data.get("interval_hours")
+    
+    save_scheduler_config()
+    setup_scheduler()
+    
+    return jsonify({
+        "success": True,
+        "config": scheduler_config
+    })
+
+
+@app.route('/api/scheduler/run-now', methods=['POST'])
+def run_scheduler_now():
+    """Manually trigger a scheduled scrape."""
+    if scrape_status["running"]:
+        return jsonify({"error": "Scraper is already running"}), 400
+    
+    scheduled_scrape()
+    return jsonify({"success": True, "message": "Scrape started"})
+
+
+@app.route('/api/kill', methods=['POST'])
+def kill_scrape():
+    """Kill switch - stop all running scrape processes."""
+    if not scrape_status["running"]:
+        return jsonify({"error": "No scraper is running"}), 400
+    
+    scrape_status["kill_requested"] = True
+    log_message("🛑 KILL SWITCH ACTIVATED - Stopping all processes...", "error")
+    
+    return jsonify({"success": True, "message": "Kill signal sent"})
+
+
 if __name__ == '__main__':
     print("=" * 50)
     print("  Telegram Scraper Web GUI")
     print("  Open http://localhost:5000 in your browser")
     print("=" * 50)
+    
+    # Load and start scheduler
+    load_scheduler_config()
+    scheduler.start()
+    setup_scheduler()
+    
+    if scheduler_config["enabled"]:
+        print(f"  Scheduler: ENABLED - Next run: {scheduler_config['next_run']}")
+    else:
+        print("  Scheduler: DISABLED")
+    print("=" * 50)
+    
     socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Scraper Setup Guide</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0088cc;
+            --primary-dark: #006699;
+            --secondary: #34a853;
+            --bg: #0f1419;
+            --bg-card: #1c2128;
+            --bg-card-hover: #242c36;
+            --text: #e7e9ea;
+            --text-muted: #8b98a5;
+            --border: #2f3336;
+            --accent: #f7931a;
+            --danger: #f4212e;
+            --success: #00ba7c;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            padding: 3rem 0;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 3rem;
+        }
+
+        .header-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            font-size: 2.5rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Progress Steps */
+        .progress-bar {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 3rem;
+            position: relative;
+        }
+
+        .progress-bar::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 10%;
+            right: 10%;
+            height: 2px;
+            background: var(--border);
+            z-index: 0;
+        }
+
+        .progress-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1;
+        }
+
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .step-number.active {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+
+        .step-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            background: var(--bg-card-hover);
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .card-icon.telegram {
+            background: rgba(0, 136, 204, 0.15);
+        }
+
+        .card-icon.google {
+            background: rgba(52, 168, 83, 0.15);
+        }
+
+        .card-icon.auth {
+            background: rgba(247, 147, 26, 0.15);
+        }
+
+        .card-icon.github {
+            background: rgba(139, 152, 165, 0.15);
+        }
+
+        .card-icon.config {
+            background: rgba(244, 33, 46, 0.15);
+        }
+
+        .card-icon.run {
+            background: rgba(0, 186, 124, 0.15);
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+
+        .card-subtitle {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        /* Steps List */
+        .steps-list {
+            list-style: none;
+        }
+
+        .steps-list li {
+            display: flex;
+            gap: 1rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .steps-list li:last-child {
+            border-bottom: none;
+        }
+
+        .step-marker {
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
+            border-radius: 50%;
+            background: var(--bg);
+            border: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        .step-content h4 {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .step-content p {
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        /* Code Blocks */
+        .code-block {
+            background: #000;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            overflow-x: auto;
+            position: relative;
+        }
+
+        .code-block code {
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.875rem;
+            color: #00ff88;
+        }
+
+        .code-block .comment {
+            color: #6a737d;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .copy-btn:hover {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Table */
+        .secrets-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+        }
+
+        .secrets-table th,
+        .secrets-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .secrets-table th {
+            color: var(--text-muted);
+            font-weight: 500;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .secrets-table td code {
+            background: var(--bg);
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            color: var(--accent);
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+        }
+
+        .alert-info {
+            background: rgba(0, 136, 204, 0.1);
+            border: 1px solid rgba(0, 136, 204, 0.3);
+        }
+
+        .alert-warning {
+            background: rgba(247, 147, 26, 0.1);
+            border: 1px solid rgba(247, 147, 26, 0.3);
+        }
+
+        .alert-success {
+            background: rgba(0, 186, 124, 0.1);
+            border: 1px solid rgba(0, 186, 124, 0.3);
+        }
+
+        .alert-icon {
+            font-size: 1.25rem;
+        }
+
+        .alert-content {
+            font-size: 0.875rem;
+        }
+
+        .alert-content strong {
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Quick Start */
+        .quick-start {
+            background: linear-gradient(135deg, rgba(0, 136, 204, 0.1), rgba(52, 168, 83, 0.1));
+            border: 1px solid var(--primary);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 3rem 0;
+        }
+
+        .quick-start h2 {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .quick-start .commands {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .command-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: var(--bg);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+
+        .command-number {
+            width: 32px;
+            height: 32px;
+            min-width: 32px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .command-text {
+            flex: 1;
+        }
+
+        .command-text .label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .command-text code {
+            font-family: 'Consolas', monospace;
+            color: var(--success);
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem 0;
+            border-top: 1px solid var(--border);
+            margin-top: 3rem;
+            color: var(--text-muted);
+            font-size: 0.875rem;
+        }
+
+        .footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 640px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.75rem;
+            }
+
+            .progress-bar {
+                display: none;
+            }
+
+            .card {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-icon">📡</div>
+            <h1>Telegram Scraper</h1>
+            <p>Daily channel scraping → Google Sheets via GitHub Actions</p>
+        </header>
+
+        <!-- Progress Bar -->
+        <div class="progress-bar">
+            <div class="progress-step">
+                <div class="step-number active">1</div>
+                <span class="step-label">Telegram API</span>
+            </div>
+            <div class="progress-step">
+                <div class="step-number">2</div>
+                <span class="step-label">Google Setup</span>
+            </div>
+            <div class="progress-step">
+                <div class="step-number">3</div>
+                <span class="step-label">Local Auth</span>
+            </div>
+            <div class="progress-step">
+                <div class="step-number">4</div>
+                <span class="step-label">GitHub</span>
+            </div>
+            <div class="progress-step">
+                <div class="step-number">5</div>
+                <span class="step-label">Configure</span>
+            </div>
+            <div class="progress-step">
+                <div class="step-number">6</div>
+                <span class="step-label">Run</span>
+            </div>
+        </div>
+
+        <!-- Quick Start -->
+        <div class="quick-start">
+            <h2>⚡ Quick Start Commands</h2>
+            <div class="commands">
+                <div class="command-item">
+                    <div class="command-number">1</div>
+                    <div class="command-text">
+                        <div class="label">Install dependencies</div>
+                        <code>pip install -r requirements.txt</code>
+                    </div>
+                </div>
+                <div class="command-item">
+                    <div class="command-number">2</div>
+                    <div class="command-text">
+                        <div class="label">Setup environment</div>
+                        <code>cp .env.example .env</code>
+                    </div>
+                </div>
+                <div class="command-item">
+                    <div class="command-number">3</div>
+                    <div class="command-text">
+                        <div class="label">Authenticate with Telegram</div>
+                        <code>python auth_session.py</code>
+                    </div>
+                </div>
+                <div class="command-item">
+                    <div class="command-number">4</div>
+                    <div class="command-text">
+                        <div class="label">Run the scraper</div>
+                        <code>python main.py</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 1: Telegram API -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon telegram">📱</div>
+                <div>
+                    <h3 class="card-title">Step 1: Telegram API Credentials</h3>
+                    <p class="card-subtitle">Get your API ID and Hash from Telegram</p>
+                </div>
+            </div>
+            <ol class="steps-list">
+                <li>
+                    <div class="step-marker">1</div>
+                    <div class="step-content">
+                        <h4>Visit Telegram's Developer Portal</h4>
+                        <p>Go to <a href="https://my.telegram.org" target="_blank" style="color: var(--primary);">my.telegram.org</a> and log in with your phone number</p>
+                    </div>
+                </li>
+                <li>
+                    <div class="step-marker">2</div>
+                    <div class="step-content">
+                        <h4>Navigate to API Development Tools</h4>
+                        <p>Click on "API Development Tools" in the menu</p>
+                    </div>
+                </li>
+                <li>
+                    <div class="step-marker">3</div>
+                    <div class="step-content">
+                        <h4>Create a New Application</h4>
+                        <p>Fill in the form with any app name and short name. You'll receive your <strong>API ID</strong> and <strong>API Hash</strong></p>
+                    </div>
+                </li>
+            </ol>
+            <div class="alert alert-warning">
+                <span class="alert-icon">⚠️</span>
+                <div class="alert-content">
+                    <strong>Keep these credentials safe!</strong>
+                    Never share your API Hash publicly. Store them in your .env file.
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Google Service Account -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon google">📊</div>
+                <div>
+                    <h3 class="card-title">Step 2: Google Service Account</h3>
+                    <p class="card-subtitle">Setup Google Sheets API access</p>
+                </div>
+            </div>
+            <ol class="steps-list">
+                <li>
+                    <div class="step-marker">1</div>
+                    <div class="step-content">
+                        <h4>Go to Google Cloud Console</h4>
+                        <p>Visit <a href="https://console.cloud.google.com" target="_blank" style="color: var(--primary);">console.cloud.google.com</a></p>
+                    </div>
+                </li>
+                <li>
+                    <div class="step-marker">2</div>
+                    <div class="step-content">
+                        <h4>Create or Select a Project</h4>
+                        <p>Create a new project or use an existing one</p>
+                    </div>
+                </li>
+                <li>
+                    <div class="step-marker">3</div>
+                    <div class="step-content">
+                        <h4>Enable Google Sheets API</h4>
+                        <p>Go to APIs & Services → Enable APIs → Search for "Google Sheets API" → Enable</p>
+                    </div>
+                </li>
+                <li>
+                    <div class="step-marker">4</div>
+                    <div class="step-content">
+                        <h4>Create Service Account</h4>
+                        <p>Go to IAM & Admin → Service Accounts → Create Service Account → Download JSON key</p>
+                    </div>
+                </li>
+                <li>
+                    <div class="step-marker">5</div>
+                    <div class="step-content">
+                        <h4>Create & Share Google Sheet</h4>
+                        <p>Create a blank Google Sheet and share it with the service account email (found in the JSON file)</p>
+                    </div>
+                </li>
+                <li>
+                    <div class="step-marker">6</div>
+                    <div class="step-content">
+                        <h4>Copy Sheet ID</h4>
+                        <p>From the URL: <code style="color: var(--accent);">docs.google.com/spreadsheets/d/<strong>SHEET_ID</strong>/edit</code></p>
+                    </div>
+                </li>
+            </ol>
+        </div>
+
+        <!-- Step 3: Local Authentication -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon auth">🔐</div>
+                <div>
+                    <h3 class="card-title">Step 3: Local Authentication</h3>
+                    <p class="card-subtitle">One-time Telegram session setup</p>
+                </div>
+            </div>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code><span class="comment"># Install dependencies</span>
+pip install -r requirements.txt
+
+<span class="comment"># Copy environment template</span>
+cp .env.example .env
+
+<span class="comment"># Edit .env with your credentials</span>
+<span class="comment"># TG_API_ID, TG_API_HASH, TG_PHONE, GOOGLE_CREDS_JSON, SHEET_ID</span>
+
+<span class="comment"># Authenticate with Telegram (enter the code they send you)</span>
+python auth_session.py
+
+<span class="comment"># Base64 encode the session for GitHub</span>
+python -c "import base64; print(base64.b64encode(open('scraper_session.session','rb').read()).decode())"</code>
+            </div>
+            <div class="alert alert-info">
+                <span class="alert-icon">💡</span>
+                <div class="alert-content">
+                    <strong>Tip</strong>
+                    When running auth_session.py, Telegram will send a code to your phone. Enter it when prompted.
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: GitHub Setup -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon github">🐙</div>
+                <div>
+                    <h3 class="card-title">Step 4: GitHub Repository Setup</h3>
+                    <p class="card-subtitle">Configure secrets for automated scraping</p>
+                </div>
+            </div>
+            <ol class="steps-list">
+                <li>
+                    <div class="step-marker">1</div>
+                    <div class="step-content">
+                        <h4>Create a New GitHub Repository</h4>
+                        <p>Create a new repo and push this project to it</p>
+                    </div>
+                </li>
+                <li>
+                    <div class="step-marker">2</div>
+                    <div class="step-content">
+                        <h4>Add Repository Secrets</h4>
+                        <p>Go to Settings → Secrets and variables → Actions → New repository secret</p>
+                    </div>
+                </li>
+            </ol>
+            <table class="secrets-table">
+                <thead>
+                    <tr>
+                        <th>Secret Name</th>
+                        <th>Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code>TG_API_ID</code></td>
+                        <td>Your Telegram API ID</td>
+                    </tr>
+                    <tr>
+                        <td><code>TG_API_HASH</code></td>
+                        <td>Your Telegram API Hash</td>
+                    </tr>
+                    <tr>
+                        <td><code>TG_PHONE</code></td>
+                        <td>Your phone number (+...)</td>
+                    </tr>
+                    <tr>
+                        <td><code>TG_SESSION</code></td>
+                        <td>Base64-encoded session file</td>
+                    </tr>
+                    <tr>
+                        <td><code>GOOGLE_CREDS</code></td>
+                        <td>Base64-encoded service-account.json</td>
+                    </tr>
+                    <tr>
+                        <td><code>SHEET_ID</code></td>
+                        <td>Your Google Sheet ID</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code><span class="comment"># Base64 encode Google credentials</span>
+python -c "import base64; print(base64.b64encode(open('service-account.json','rb').read()).decode())"</code>
+            </div>
+        </div>
+
+        <!-- Step 5: Configure Channels -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon config">📋</div>
+                <div>
+                    <h3 class="card-title">Step 5: Configure Channels</h3>
+                    <p class="card-subtitle">Edit channels.json to add your target channels</p>
+                </div>
+            </div>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code>{
+  "default_hours": 24,
+  "channels": [
+    {"name": "DarbMirror", "hours_back": 24},
+    {"name": "AnotherChannel", "hours_back": 48}
+  ]
+}</code>
+            </div>
+            <div class="alert alert-info">
+                <span class="alert-icon">📝</span>
+                <div class="alert-content">
+                    <strong>Channel Configuration</strong>
+                    <ul style="margin-top: 0.5rem; padding-left: 1rem;">
+                        <li><strong>name:</strong> Channel username (without @)</li>
+                        <li><strong>hours_back:</strong> How many hours of messages to fetch</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 6: Running -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon run">🚀</div>
+                <div>
+                    <h3 class="card-title">Step 6: Run the Scraper</h3>
+                    <p class="card-subtitle">Execute locally or let GitHub Actions handle it</p>
+                </div>
+            </div>
+            <h4 style="margin-bottom: 1rem;">Manual (Local)</h4>
+            <div class="code-block">
+                <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                <code>python main.py</code>
+            </div>
+            <h4 style="margin: 1.5rem 0 1rem;">Automated (GitHub Actions)</h4>
+            <ul class="steps-list">
+                <li>
+                    <div class="step-marker">⏰</div>
+                    <div class="step-content">
+                        <h4>Automatic Schedule</h4>
+                        <p>Runs daily at <strong>06:00 UTC</strong> (09:00 UTC+3) automatically</p>
+                    </div>
+                </li>
+                <li>
+                    <div class="step-marker">▶️</div>
+                    <div class="step-content">
+                        <h4>Manual Trigger</h4>
+                        <p>GitHub repo → Actions tab → "Daily Telegram Scraper" → Run workflow</p>
+                    </div>
+                </li>
+            </ul>
+            <div class="alert alert-success">
+                <span class="alert-icon">✅</span>
+                <div class="alert-content">
+                    <strong>You're all set!</strong>
+                    Once configured, the scraper will automatically fetch messages and populate your Google Sheet daily.
+                </div>
+            </div>
+        </div>
+
+        <!-- Output Info -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: rgba(0, 186, 124, 0.15);">📈</div>
+                <div>
+                    <h3 class="card-title">Google Sheet Output</h3>
+                    <p class="card-subtitle">Each channel gets its own tab with these columns</p>
+                </div>
+            </div>
+            <table class="secrets-table">
+                <thead>
+                    <tr>
+                        <th>Column</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td><code>scrape_date</code></td><td>When this scrape ran</td></tr>
+                    <tr><td><code>channel</code></td><td>Channel title</td></tr>
+                    <tr><td><code>msg_id</code></td><td>Message ID</td></tr>
+                    <tr><td><code>date_utc / time_utc</code></td><td>Message date & time</td></tr>
+                    <tr><td><code>text</code></td><td>Message text</td></tr>
+                    <tr><td><code>views / forwards</code></td><td>Engagement metrics</td></tr>
+                    <tr><td><code>reactions</code></td><td>Reaction breakdown</td></tr>
+                    <tr><td><code>media_type</code></td><td>photo/video/document/etc</td></tr>
+                    <tr><td><code>post_link</code></td><td>Direct link to message</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Telegram Scraper • Built with ❤️ • <a href="https://github.com" target="_blank">View on GitHub</a></p>
+        </footer>
+    </div>
+
+    <script>
+        function copyCode(btn) {
+            const codeBlock = btn.parentElement.querySelector('code');
+            const text = codeBlock.innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                btn.textContent = 'Copied!';
+                setTimeout(() => {
+                    btn.textContent = 'Copy';
+                }, 2000);
+            });
+        }
+    </script>
+</body>
+</html>

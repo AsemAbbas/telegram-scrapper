@@ -37,12 +37,37 @@ def load_channels():
 
     for ch in data.get("channels", []):
         hours = ch.get("hours_back", default_hours)
-        channels.append({
-            "name": ch["name"],
-            "hours_back": hours,
-            "from_date": datetime.now(timezone.utc) - timedelta(hours=hours),
-            "to_date": datetime.now(timezone.utc),
-        })
+        use_date_range = ch.get("use_date_range", False)
+        
+        if use_date_range and ch.get("from_date_str") and ch.get("to_date_str"):
+            # Parse custom date range
+            from_date_str = ch["from_date_str"]
+            to_date_str = ch["to_date_str"]
+            
+            # Parse datetime-local format (YYYY-MM-DDTHH:MM)
+            from_date = datetime.strptime(from_date_str, "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
+            to_date = datetime.strptime(to_date_str, "%Y-%m-%dT%H:%M").replace(tzinfo=timezone.utc)
+            
+            channels.append({
+                "name": ch["name"],
+                "hours_back": hours,
+                "use_date_range": True,
+                "from_date_str": from_date_str,
+                "to_date_str": to_date_str,
+                "from_date": from_date,
+                "to_date": to_date,
+            })
+        else:
+            # Use hours_back mode
+            channels.append({
+                "name": ch["name"],
+                "hours_back": hours,
+                "use_date_range": False,
+                "from_date_str": "",
+                "to_date_str": "",
+                "from_date": datetime.now(timezone.utc) - timedelta(hours=hours),
+                "to_date": datetime.now(timezone.utc),
+            })
 
     return channels
 

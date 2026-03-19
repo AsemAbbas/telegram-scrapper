@@ -55,6 +55,16 @@ def _sanitize_tab_name(name):
     return clean[:100]
 
 
+def _get_existing_msg_ids(worksheet, msg_id_col_index):
+    """Get all existing message IDs from a worksheet to avoid duplicates."""
+    try:
+        all_values = worksheet.col_values(msg_id_col_index + 1)  # 1-indexed
+        # Skip header row, convert to set of strings
+        return set(str(v) for v in all_values[1:] if v)
+    except Exception:
+        return set()
+
+
 def push_to_sheets(all_rows):
     """Push scraped rows to Google Sheets.
 
@@ -63,6 +73,7 @@ def push_to_sheets(all_rows):
     2. Individual channel tabs - one tab per channel
     
     Rows are appended (not overwritten).
+    Duplicates are automatically skipped based on msg_id.
     """
     if not all_rows:
         print("No rows to push.")
@@ -74,16 +85,44 @@ def push_to_sheets(all_rows):
     client = get_gspread_client()
     spreadsheet = client.open_by_key(SHEET_ID)
     columns = get_sheet_columns()
+    
+    # Find msg_id column index for duplicate checking
+    msg_id_col_index = columns.index("msg_id") if "msg_id" in columns else None
+    post_link_col_index = columns.index("post_link") if "post_link" in columns else None
 
     # ═══════════════════════════════════════════════════════════════
-    # 1. Push ALL data to "All Data" tab
+    # 1. Push ALL data to "All Data" tab (with duplicate check)
     # ═══════════════════════════════════════════════════════════════
     all_data_tab = "All Data"
     ws_all = _ensure_worksheet(spreadsheet, all_data_tab, columns)
     
+    # Get existing post_links to check for duplicates (more unique than msg_id alone)
+    existing_links = set()
+    if post_link_col_index is not None:
+        try:
+            existing_links = set(ws_all.col_values(post_link_col_index + 1)[1:])
+        except Exception:
+            pass
+    
+    # Filter out duplicates
+    new_rows = []
+    for row in all_rows:
+        post_link = row.get("post_link", "")
+        if post_link and post_link not in existing_links:
+            new_rows.append(row)
+            existing_links.add(post_link)  # Track newly added ones too
+    
+    skipped_count = len(all_rows) - len(new_rows)
+    if skipped_count > 0:
+        print(f"  Skipping {skipped_count} duplicate messages (already in sheet)")
+    
+    if not new_rows:
+        print("  No new messages to push (all duplicates).")
+        return
+    
     # Build all rows in column order
     all_batch = []
-    for row in all_rows:
+    for row in new_rows:
         all_batch.append([str(row.get(col, "")) for col in columns])
     
     # Append in chunks of 500 (Sheets API limit)
@@ -94,10 +133,10 @@ def push_to_sheets(all_rows):
         print(f"  {all_data_tab}: appended {len(chunk)} rows")
 
     # ═══════════════════════════════════════════════════════════════
-    # 2. Push to individual channel tabs
+    # 2. Push to individual channel tabs (with duplicate check)
     # ═══════════════════════════════════════════════════════════════
     channels = {}
-    for row in all_rows:
+    for row in new_rows:
         ch_key = row.get("username", "unknown")
         if ch_key not in channels:
             channels[ch_key] = []
@@ -118,6 +157,8 @@ def push_to_sheets(all_rows):
             ws.append_rows(chunk, value_input_option="RAW")
             print(f"  {tab_name}: appended {len(chunk)} rows")
 
-    print(f"\nTotal pushed to Google Sheets: {len(all_rows)} rows")
-    print(f"  - 'All Data' tab: {len(all_rows)} rows")
+    print(f"\nTotal pushed to Google Sheets: {len(new_rows)} new rows")
+    print(f"  - 'All Data' tab: {len(new_rows)} rows")
     print(f"  - Individual tabs: {len(channels)} channels")
+    if skipped_count > 0:
+        print(f"  - Skipped duplicates: {skipped_count} rows")

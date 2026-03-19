@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Telegram Scraper</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -54,10 +55,87 @@
                     </svg>
                     Start Scraping
                 </button>
+                <button id="kill-btn" onclick="killScrape()" 
+                    class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 hidden">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
+                    </svg>
+                    STOP
+                </button>
                 <label class="flex items-center gap-2 text-sm text-gray-400">
                     <input type="checkbox" id="push-sheets" checked class="rounded bg-gray-700 border-gray-600">
                     Push to Sheets
                 </label>
+            </div>
+        </div>
+
+        <!-- Scheduler Card -->
+        <div class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">⏰ Schedule</h2>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <span class="text-sm text-gray-400">Auto-run</span>
+                    <input type="checkbox" id="scheduler-enabled" onchange="toggleScheduler()" 
+                        class="w-10 h-5 bg-gray-700 rounded-full appearance-none cursor-pointer relative
+                        checked:bg-blue-600 transition-colors
+                        before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full 
+                        before:top-0.5 before:left-0.5 before:transition-transform checked:before:translate-x-5">
+                </label>
+            </div>
+            
+            <div id="scheduler-options" class="space-y-4">
+                <!-- Mode Selection -->
+                <div class="flex gap-4">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="schedule-mode" value="daily" checked onchange="updateScheduleMode()"
+                            class="w-4 h-4 bg-gray-700 border-gray-600">
+                        <span class="text-sm">Daily at specific time</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="schedule-mode" value="interval" onchange="updateScheduleMode()"
+                            class="w-4 h-4 bg-gray-700 border-gray-600">
+                        <span class="text-sm">Every X hours</span>
+                    </label>
+                </div>
+                
+                <!-- Daily Time -->
+                <div id="daily-options" class="flex items-center gap-3">
+                    <span class="text-gray-400 text-sm">Run at:</span>
+                    <input type="time" id="schedule-time" value="08:00"
+                        class="bg-gray-700 border-none text-white rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                </div>
+                
+                <!-- Interval Hours -->
+                <div id="interval-options" class="flex items-center gap-3 hidden">
+                    <span class="text-gray-400 text-sm">Run every:</span>
+                    <select id="schedule-interval" class="bg-gray-700 border-none text-white rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <option value="1">1 hour</option>
+                        <option value="2">2 hours</option>
+                        <option value="4">4 hours</option>
+                        <option value="6" selected>6 hours</option>
+                        <option value="8">8 hours</option>
+                        <option value="12">12 hours</option>
+                        <option value="24">24 hours</option>
+                    </select>
+                </div>
+                
+                <!-- Schedule Info -->
+                <div id="schedule-info" class="bg-gray-700/50 rounded-lg p-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Next run:</span>
+                        <span id="next-run" class="text-white">Not scheduled</span>
+                    </div>
+                    <div class="flex justify-between mt-1">
+                        <span class="text-gray-400">Last run:</span>
+                        <span id="last-run" class="text-white">Never</span>
+                    </div>
+                </div>
+                
+                <!-- Save Button -->
+                <button onclick="saveScheduler()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                    Save Schedule
+                </button>
             </div>
         </div>
 
@@ -72,21 +150,57 @@
             
             <div id="channels-list" class="space-y-3">
                 {% for ch in channels %}
-                <div class="channel-item flex items-center gap-3 bg-gray-700/50 rounded-lg p-3">
-                    <div class="flex-1">
-                        <input type="text" value="{{ ch.name }}" placeholder="Channel username" 
-                            class="channel-name bg-transparent border-none text-white w-full focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1">
+                <div class="channel-item bg-gray-700/50 rounded-lg p-4">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="flex-1">
+                            <input type="text" value="{{ ch.name }}" placeholder="Channel username" 
+                                class="channel-name bg-transparent border-none text-white w-full focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 text-lg font-medium">
+                        </div>
+                        <button onclick="removeChannel(this)" class="text-red-400 hover:text-red-300 p-1">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                            </svg>
+                        </button>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <input type="number" value="{{ ch.hours_back }}" min="1" max="720"
+                    
+                    <!-- Mode Toggle -->
+                    <div class="flex items-center gap-4 mb-3">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="mode-{{ loop.index }}" value="hours" {{ 'checked' if not ch.use_date_range else '' }} onchange="toggleChannelMode(this)"
+                                class="w-4 h-4 bg-gray-600 border-gray-500">
+                            <span class="text-sm text-gray-300">Last X hours</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="mode-{{ loop.index }}" value="daterange" {{ 'checked' if ch.use_date_range else '' }} onchange="toggleChannelMode(this)"
+                                class="w-4 h-4 bg-gray-600 border-gray-500">
+                            <span class="text-sm text-gray-300">Date range</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Hours Mode -->
+                    <div class="channel-hours-mode flex items-center gap-2 {{ 'hidden' if ch.use_date_range else '' }}">
+                        <span class="text-gray-400 text-sm">Last</span>
+                        <input type="number" value="{{ ch.hours_back }}" min="1" max="8760"
                             class="channel-hours w-20 bg-gray-600 border-none text-white text-center rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
                         <span class="text-gray-400 text-sm">hours</span>
                     </div>
-                    <button onclick="removeChannel(this)" class="text-red-400 hover:text-red-300 p-1">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                    </button>
+                    
+                    <!-- Date Range Mode -->
+                    <div class="channel-daterange-mode flex flex-wrap items-center gap-3 {{ '' if ch.use_date_range else 'hidden' }}">
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-400 text-sm">From:</span>
+                            <input type="datetime-local" value="{{ ch.from_date_str or '' }}"
+                                class="channel-from-date bg-gray-600 border-none text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-gray-400 text-sm">To:</span>
+                            <input type="datetime-local" value="{{ ch.to_date_str or '' }}"
+                                class="channel-to-date bg-gray-600 border-none text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
+                        </div>
+                        <button onclick="setToNow(this)" class="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 bg-gray-600 rounded">
+                            Set "To" = Now
+                        </button>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
@@ -132,6 +246,11 @@
             addLog(data.text, data.type);
         });
 
+        socket.on('scheduler_update', (config) => {
+            document.getElementById('last-run').textContent = config.last_run || 'Never';
+            document.getElementById('next-run').textContent = config.next_run || 'Not scheduled';
+        });
+
         socket.on('status', (data) => {
             updateStatus(data.running, data.progress, data.channel);
         });
@@ -154,6 +273,7 @@
             const progressPercent = document.getElementById('progress-percent');
             const currentTask = document.getElementById('current-task');
             const startBtn = document.getElementById('start-btn');
+            const killBtn = document.getElementById('kill-btn');
 
             progressBar.style.width = progress + '%';
             progressPercent.textContent = progress + '%';
@@ -164,6 +284,7 @@
                 currentTask.textContent = channel ? `Scraping: ${channel}` : 'Processing...';
                 startBtn.disabled = true;
                 startBtn.classList.add('opacity-50');
+                killBtn.classList.remove('hidden');
             } else {
                 badge.textContent = progress === 100 ? 'Completed' : 'Ready';
                 badge.className = progress === 100 
@@ -172,6 +293,7 @@
                 currentTask.textContent = progress === 100 ? 'Scraping completed!' : 'Waiting to start...';
                 startBtn.disabled = false;
                 startBtn.classList.remove('opacity-50');
+                killBtn.classList.add('hidden');
             }
         }
 
@@ -249,31 +371,117 @@
             });
         }
 
+        function killScrape() {
+            if (!isRunning) return;
+            
+            addLog('Sending kill signal...', 'warning');
+            
+            fetch('/api/kill', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    addLog(data.error, 'error');
+                } else {
+                    addLog('Kill signal sent - stopping...', 'warning');
+                }
+            })
+            .catch(err => {
+                addLog('Failed to send kill signal: ' + err, 'error');
+            });
+        }
+
         function addChannel() {
             const list = document.getElementById('channels-list');
+            const count = list.querySelectorAll('.channel-item').length + 1;
             const item = document.createElement('div');
-            item.className = 'channel-item flex items-center gap-3 bg-gray-700/50 rounded-lg p-3';
+            item.className = 'channel-item bg-gray-700/50 rounded-lg p-4';
             item.innerHTML = `
-                <div class="flex-1">
-                    <input type="text" placeholder="Channel username" 
-                        class="channel-name bg-transparent border-none text-white w-full focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1">
+                <div class="flex items-center gap-3 mb-3">
+                    <div class="flex-1">
+                        <input type="text" placeholder="Channel username" 
+                            class="channel-name bg-transparent border-none text-white w-full focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 text-lg font-medium">
+                    </div>
+                    <button onclick="removeChannel(this)" class="text-red-400 hover:text-red-300 p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </button>
                 </div>
-                <div class="flex items-center gap-2">
-                    <input type="number" value="24" min="1" max="720"
+                
+                <!-- Mode Toggle -->
+                <div class="flex items-center gap-4 mb-3">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="mode-new-${count}" value="hours" checked onchange="toggleChannelMode(this)"
+                            class="w-4 h-4 bg-gray-600 border-gray-500">
+                        <span class="text-sm text-gray-300">Last X hours</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="mode-new-${count}" value="daterange" onchange="toggleChannelMode(this)"
+                            class="w-4 h-4 bg-gray-600 border-gray-500">
+                        <span class="text-sm text-gray-300">Date range</span>
+                    </label>
+                </div>
+                
+                <!-- Hours Mode -->
+                <div class="channel-hours-mode flex items-center gap-2">
+                    <span class="text-gray-400 text-sm">Last</span>
+                    <input type="number" value="24" min="1" max="8760"
                         class="channel-hours w-20 bg-gray-600 border-none text-white text-center rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
                     <span class="text-gray-400 text-sm">hours</span>
                 </div>
-                <button onclick="removeChannel(this)" class="text-red-400 hover:text-red-300 p-1">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                    </svg>
-                </button>
+                
+                <!-- Date Range Mode -->
+                <div class="channel-daterange-mode flex flex-wrap items-center gap-3 hidden">
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-400 text-sm">From:</span>
+                        <input type="datetime-local" value=""
+                            class="channel-from-date bg-gray-600 border-none text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-400 text-sm">To:</span>
+                        <input type="datetime-local" value=""
+                            class="channel-to-date bg-gray-600 border-none text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
+                    </div>
+                    <button onclick="setToNow(this)" class="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 bg-gray-600 rounded">
+                        Set "To" = Now
+                    </button>
+                </div>
             `;
             list.appendChild(item);
         }
 
         function removeChannel(btn) {
             btn.closest('.channel-item').remove();
+        }
+
+        function toggleChannelMode(radio) {
+            const item = radio.closest('.channel-item');
+            const hoursMode = item.querySelector('.channel-hours-mode');
+            const daterangeMode = item.querySelector('.channel-daterange-mode');
+            
+            if (radio.value === 'hours') {
+                hoursMode.classList.remove('hidden');
+                daterangeMode.classList.add('hidden');
+            } else {
+                hoursMode.classList.add('hidden');
+                daterangeMode.classList.remove('hidden');
+            }
+        }
+        
+        function setToNow(btn) {
+            const item = btn.closest('.channel-item');
+            const toDateInput = item.querySelector('.channel-to-date');
+            const now = new Date();
+            // Format as YYYY-MM-DDTHH:MM for datetime-local input
+            const formatted = now.getFullYear() + '-' + 
+                String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                String(now.getDate()).padStart(2, '0') + 'T' + 
+                String(now.getHours()).padStart(2, '0') + ':' + 
+                String(now.getMinutes()).padStart(2, '0');
+            toDateInput.value = formatted;
         }
 
         function saveChannels() {
@@ -283,8 +491,24 @@
             items.forEach(item => {
                 const name = item.querySelector('.channel-name').value.trim();
                 const hours = parseInt(item.querySelector('.channel-hours').value) || 24;
+                const modeRadio = item.querySelector('input[type="radio"]:checked');
+                const useDateRange = modeRadio && modeRadio.value === 'daterange';
+                const fromDate = item.querySelector('.channel-from-date').value;
+                const toDate = item.querySelector('.channel-to-date').value;
+                
                 if (name) {
-                    channels.push({ name, hours_back: hours });
+                    const channelData = { 
+                        name, 
+                        hours_back: hours,
+                        use_date_range: useDateRange
+                    };
+                    
+                    if (useDateRange) {
+                        channelData.from_date_str = fromDate;
+                        channelData.to_date_str = toDate;
+                    }
+                    
+                    channels.push(channelData);
                 }
             });
 
@@ -303,6 +527,93 @@
                 addLog('Failed to save channels: ' + err, 'error');
             });
         }
+
+        // ═══════════════════════════════════════════════════════════════
+        // SCHEDULER FUNCTIONS
+        // ═══════════════════════════════════════════════════════════════
+        
+        function loadScheduler() {
+            fetch('/api/scheduler')
+                .then(res => res.json())
+                .then(config => {
+                    document.getElementById('scheduler-enabled').checked = config.enabled;
+                    document.getElementById('schedule-time').value = config.time || '08:00';
+                    
+                    if (config.interval_hours) {
+                        document.querySelector('input[name="schedule-mode"][value="interval"]').checked = true;
+                        document.getElementById('schedule-interval').value = config.interval_hours;
+                        updateScheduleMode();
+                    }
+                    
+                    document.getElementById('next-run').textContent = config.next_run || 'Not scheduled';
+                    document.getElementById('last-run').textContent = config.last_run || 'Never';
+                    
+                    toggleSchedulerUI(config.enabled);
+                })
+                .catch(err => console.error('Failed to load scheduler:', err));
+        }
+
+        function toggleScheduler() {
+            const enabled = document.getElementById('scheduler-enabled').checked;
+            toggleSchedulerUI(enabled);
+        }
+
+        function toggleSchedulerUI(enabled) {
+            const options = document.getElementById('scheduler-options');
+            if (enabled) {
+                options.classList.remove('opacity-50', 'pointer-events-none');
+            } else {
+                options.classList.add('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function updateScheduleMode() {
+            const mode = document.querySelector('input[name="schedule-mode"]:checked').value;
+            const dailyOptions = document.getElementById('daily-options');
+            const intervalOptions = document.getElementById('interval-options');
+            
+            if (mode === 'daily') {
+                dailyOptions.classList.remove('hidden');
+                intervalOptions.classList.add('hidden');
+            } else {
+                dailyOptions.classList.add('hidden');
+                intervalOptions.classList.remove('hidden');
+            }
+        }
+
+        function saveScheduler() {
+            const enabled = document.getElementById('scheduler-enabled').checked;
+            const mode = document.querySelector('input[name="schedule-mode"]:checked').value;
+            const time = document.getElementById('schedule-time').value;
+            const intervalHours = mode === 'interval' ? parseInt(document.getElementById('schedule-interval').value) : null;
+            
+            fetch('/api/scheduler', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    enabled,
+                    time,
+                    interval_hours: intervalHours
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    addLog('Schedule saved!', 'success');
+                    document.getElementById('next-run').textContent = data.config.next_run || 'Not scheduled';
+                    
+                    if (enabled) {
+                        addLog(`Next run: ${data.config.next_run}`, 'info');
+                    }
+                }
+            })
+            .catch(err => {
+                addLog('Failed to save schedule: ' + err, 'error');
+            });
+        }
+
+        // Load scheduler config on page load
+        document.addEventListener('DOMContentLoaded', loadScheduler);
     </script>
 </body>
 </html>
