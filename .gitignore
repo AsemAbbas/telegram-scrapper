@@ -2,6 +2,9 @@
 *.session
 *.session-journal
 service-account.json
+n8n-telegram-scrapper-*.json
+*_SECRET.txt
+github_secrets.txt
 __pycache__/
 *.pyc
 .venv/

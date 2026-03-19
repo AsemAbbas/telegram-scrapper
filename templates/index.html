@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Scraper</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .log-container { max-height: 400px; overflow-y: auto; }
+        .log-entry { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-blue-400 mb-2">📡 Telegram Scraper</h1>
+            <p class="text-gray-400">Scrape Telegram channels → Google Sheets</p>
+        </div>
+
+        <!-- Status Card -->
+        <div class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Status</h2>
+                <span id="status-badge" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-700 text-gray-300">
+                    Ready
+                </span>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div class="mb-4">
+                <div class="flex justify-between text-sm text-gray-400 mb-1">
+                    <span id="current-task">Waiting to start...</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+                <div class="w-full bg-gray-700 rounded-full h-3">
+                    <div id="progress-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-3">
+                <button id="start-btn" onclick="startScrape()" 
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    Start Scraping
+                </button>
+                <label class="flex items-center gap-2 text-sm text-gray-400">
+                    <input type="checkbox" id="push-sheets" checked class="rounded bg-gray-700 border-gray-600">
+                    Push to Sheets
+                </label>
+            </div>
+        </div>
+
+        <!-- Channels Card -->
+        <div class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Channels</h2>
+                <button onclick="addChannel()" class="text-blue-400 hover:text-blue-300 text-sm font-medium">
+                    + Add Channel
+                </button>
+            </div>
+            
+            <div id="channels-list" class="space-y-3">
+                {% for ch in channels %}
+                <div class="channel-item flex items-center gap-3 bg-gray-700/50 rounded-lg p-3">
+                    <div class="flex-1">
+                        <input type="text" value="{{ ch.name }}" placeholder="Channel username" 
+                            class="channel-name bg-transparent border-none text-white w-full focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="number" value="{{ ch.hours_back }}" min="1" max="720"
+                            class="channel-hours w-20 bg-gray-600 border-none text-white text-center rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                        <span class="text-gray-400 text-sm">hours</span>
+                    </div>
+                    <button onclick="removeChannel(this)" class="text-red-400 hover:text-red-300 p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                        </svg>
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <button onclick="saveChannels()" class="mt-4 w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                Save Channels
+            </button>
+        </div>
+
+        <!-- Results Card -->
+        <div id="results-card" class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg hidden">
+            <h2 class="text-xl font-semibold mb-4">Results</h2>
+            <div id="results-list" class="space-y-2"></div>
+        </div>
+
+        <!-- Log Card -->
+        <div class="bg-gray-800 rounded-xl p-6 shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold">Activity Log</h2>
+                <button onclick="clearLogs()" class="text-gray-400 hover:text-gray-300 text-sm">Clear</button>
+            </div>
+            <div id="log-container" class="log-container bg-gray-900 rounded-lg p-4 font-mono text-sm space-y-1">
+                <div class="text-gray-500">Waiting for activity...</div>
+            </div>
+        </div>
+
+        <!-- Config Info -->
+        <div class="mt-6 text-center text-sm text-gray-500">
+            <p>Sheet ID: <code class="bg-gray-800 px-2 py-1 rounded">{{ sheet_id or 'Not configured' }}</code></p>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let isRunning = false;
+
+        // Socket events
+        socket.on('connect', () => {
+            console.log('Connected to server');
+        });
+
+        socket.on('log', (data) => {
+            addLog(data.text, data.type);
+        });
+
+        socket.on('status', (data) => {
+            updateStatus(data.running, data.progress, data.channel);
+        });
+
+        socket.on('channel_done', (data) => {
+            addLog(`✓ ${data.channel}: ${data.count} messages`, 'success');
+        });
+
+        socket.on('done', (data) => {
+            isRunning = false;
+            updateStatus(false, 100);
+            showResults(data.results);
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('start-btn').classList.remove('opacity-50');
+        });
+
+        function updateStatus(running, progress, channel = '') {
+            const badge = document.getElementById('status-badge');
+            const progressBar = document.getElementById('progress-bar');
+            const progressPercent = document.getElementById('progress-percent');
+            const currentTask = document.getElementById('current-task');
+            const startBtn = document.getElementById('start-btn');
+
+            progressBar.style.width = progress + '%';
+            progressPercent.textContent = progress + '%';
+
+            if (running) {
+                badge.textContent = 'Running';
+                badge.className = 'px-3 py-1 rounded-full text-sm font-medium bg-blue-600 text-white pulse';
+                currentTask.textContent = channel ? `Scraping: ${channel}` : 'Processing...';
+                startBtn.disabled = true;
+                startBtn.classList.add('opacity-50');
+            } else {
+                badge.textContent = progress === 100 ? 'Completed' : 'Ready';
+                badge.className = progress === 100 
+                    ? 'px-3 py-1 rounded-full text-sm font-medium bg-green-600 text-white'
+                    : 'px-3 py-1 rounded-full text-sm font-medium bg-gray-700 text-gray-300';
+                currentTask.textContent = progress === 100 ? 'Scraping completed!' : 'Waiting to start...';
+                startBtn.disabled = false;
+                startBtn.classList.remove('opacity-50');
+            }
+        }
+
+        function addLog(text, type = 'info') {
+            const container = document.getElementById('log-container');
+            if (container.querySelector('.text-gray-500')) {
+                container.innerHTML = '';
+            }
+
+            const colors = {
+                info: 'text-gray-300',
+                success: 'text-green-400',
+                error: 'text-red-400',
+                warning: 'text-yellow-400'
+            };
+
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${colors[type] || colors.info}`;
+            entry.innerHTML = `<span class="text-gray-500">[${time}]</span> ${text}`;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('log-container').innerHTML = '<div class="text-gray-500">Waiting for activity...</div>';
+        }
+
+        function showResults(results) {
+            const card = document.getElementById('results-card');
+            const list = document.getElementById('results-list');
+            
+            if (!results || results.length === 0) {
+                card.classList.add('hidden');
+                return;
+            }
+
+            card.classList.remove('hidden');
+            list.innerHTML = results.map(r => `
+                <div class="flex items-center justify-between bg-gray-700/50 rounded-lg p-3">
+                    <span class="font-medium">${r.channel}</span>
+                    <span class="${r.error ? 'text-red-400' : 'text-green-400'}">
+                        ${r.error ? 'Error' : r.messages + ' messages'}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        function startScrape() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            const pushToSheet = document.getElementById('push-sheets').checked;
+            
+            clearLogs();
+            addLog('Starting scraper...', 'info');
+            
+            fetch('/api/scrape', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ push_to_sheet: pushToSheet })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.error) {
+                    addLog(data.error, 'error');
+                    isRunning = false;
+                    updateStatus(false, 0);
+                }
+            })
+            .catch(err => {
+                addLog('Failed to start scraper: ' + err, 'error');
+                isRunning = false;
+                updateStatus(false, 0);
+            });
+        }
+
+        function addChannel() {
+            const list = document.getElementById('channels-list');
+            const item = document.createElement('div');
+            item.className = 'channel-item flex items-center gap-3 bg-gray-700/50 rounded-lg p-3';
+            item.innerHTML = `
+                <div class="flex-1">
+                    <input type="text" placeholder="Channel username" 
+                        class="channel-name bg-transparent border-none text-white w-full focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1">
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="number" value="24" min="1" max="720"
+                        class="channel-hours w-20 bg-gray-600 border-none text-white text-center rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                    <span class="text-gray-400 text-sm">hours</span>
+                </div>
+                <button onclick="removeChannel(this)" class="text-red-400 hover:text-red-300 p-1">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                    </svg>
+                </button>
+            `;
+            list.appendChild(item);
+        }
+
+        function removeChannel(btn) {
+            btn.closest('.channel-item').remove();
+        }
+
+        function saveChannels() {
+            const items = document.querySelectorAll('.channel-item');
+            const channels = [];
+            
+            items.forEach(item => {
+                const name = item.querySelector('.channel-name').value.trim();
+                const hours = parseInt(item.querySelector('.channel-hours').value) || 24;
+                if (name) {
+                    channels.push({ name, hours_back: hours });
+                }
+            });
+
+            fetch('/api/channels', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ channels, default_hours: 24 })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    addLog('Channels saved!', 'success');
+                }
+            })
+            .catch(err => {
+                addLog('Failed to save channels: ' + err, 'error');
+            });
+        }
+    </script>
+</body>
+</html>

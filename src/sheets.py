@@ -58,7 +58,11 @@ def _sanitize_tab_name(name):
 def push_to_sheets(all_rows):
     """Push scraped rows to Google Sheets.
 
-    Each channel gets its own tab. Rows are appended (not overwritten).
+    Creates:
+    1. "All Data" tab - contains all messages from all channels
+    2. Individual channel tabs - one tab per channel
+    
+    Rows are appended (not overwritten).
     """
     if not all_rows:
         print("No rows to push.")
@@ -71,15 +75,33 @@ def push_to_sheets(all_rows):
     spreadsheet = client.open_by_key(SHEET_ID)
     columns = get_sheet_columns()
 
-    # Group rows by channel
+    # ═══════════════════════════════════════════════════════════════
+    # 1. Push ALL data to "All Data" tab
+    # ═══════════════════════════════════════════════════════════════
+    all_data_tab = "All Data"
+    ws_all = _ensure_worksheet(spreadsheet, all_data_tab, columns)
+    
+    # Build all rows in column order
+    all_batch = []
+    for row in all_rows:
+        all_batch.append([str(row.get(col, "")) for col in columns])
+    
+    # Append in chunks of 500 (Sheets API limit)
+    chunk_size = 500
+    for i in range(0, len(all_batch), chunk_size):
+        chunk = all_batch[i:i + chunk_size]
+        ws_all.append_rows(chunk, value_input_option="RAW")
+        print(f"  {all_data_tab}: appended {len(chunk)} rows")
+
+    # ═══════════════════════════════════════════════════════════════
+    # 2. Push to individual channel tabs
+    # ═══════════════════════════════════════════════════════════════
     channels = {}
     for row in all_rows:
         ch_key = row.get("username", "unknown")
         if ch_key not in channels:
             channels[ch_key] = []
         channels[ch_key].append(row)
-
-    total_pushed = 0
 
     for ch_name, rows in channels.items():
         tab_name = _sanitize_tab_name(ch_name)
@@ -90,13 +112,12 @@ def push_to_sheets(all_rows):
         for row in rows:
             batch.append([str(row.get(col, "")) for col in columns])
 
-        # Append in chunks of 500 (Sheets API limit)
-        chunk_size = 500
+        # Append in chunks of 500
         for i in range(0, len(batch), chunk_size):
             chunk = batch[i:i + chunk_size]
             ws.append_rows(chunk, value_input_option="RAW")
             print(f"  {tab_name}: appended {len(chunk)} rows")
 
-        total_pushed += len(rows)
-
-    print(f"\nTotal pushed to Google Sheets: {total_pushed} rows across {len(channels)} tabs")
+    print(f"\nTotal pushed to Google Sheets: {len(all_rows)} rows")
+    print(f"  - 'All Data' tab: {len(all_rows)} rows")
+    print(f"  - Individual tabs: {len(channels)} channels")

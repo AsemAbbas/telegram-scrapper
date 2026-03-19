@@ -2,7 +2,7 @@
   "default_hours": 24,
   "channels": [
     {
-      "name": "DarbMirror",
+      "name": "QudsN",
       "hours_back": 24
     }
   ]
