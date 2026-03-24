@@ -16,6 +16,12 @@ from apscheduler.triggers.cron import CronTrigger
 
 from src.config import load_channels, TG_API_ID, TG_API_HASH, TG_PHONE, TG_SESSION_NAME, SHEET_ID
 from src.sheets import push_to_sheets
+from src.local_db import (
+    log_audit, get_audit_log, clear_audit_log,
+    save_messages_locally, get_local_message_count,
+    get_setting, set_setting
+)
+from src.local_export import export_data, get_export_files, get_available_formats
 
 from telethon import TelegramClient
 from telethon.tl import types
@@ -34,6 +40,9 @@ scrape_status = {
     "error": None,
     "kill_requested": False
 }
+
+# App enabled state (global kill switch)
+app_enabled = True
 
 # Scheduler state
 scheduler = BackgroundScheduler()
@@ -68,17 +77,27 @@ def save_scheduler_config():
 
 def scheduled_scrape():
     """Run scraper on schedule."""
+    global app_enabled
+    
+    if not app_enabled:
+        print("[Scheduler] App is disabled, skipping scheduled scrape...")
+        log_audit("scheduled_scrape_skipped", "App is disabled", "warning")
+        return
+    
     if scrape_status["running"]:
         print("[Scheduler] Scraper already running, skipping...")
         return
     
     print(f"[Scheduler] Starting scheduled scrape at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    log_audit("scheduled_scrape_started", f"Scheduled scrape initiated")
     scheduler_config["last_run"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     save_scheduler_config()
     
     channels = load_channels()
     if channels:
-        thread = threading.Thread(target=run_scraper_async, args=(channels, True))
+        # Default export options for scheduled scrapes
+        export_options = {"push_to_sheets": True}
+        thread = threading.Thread(target=run_scraper_async, args=(channels, export_options))
         thread.daemon = True
         thread.start()
 
@@ -303,14 +322,21 @@ async def run_scraper_coroutine(channels_config, push_to_sheet, log_fn):
     
     await client.disconnect()
     
+    # Always save to local database first (backup)
+    if all_rows:
+        local_saved = save_messages_locally(all_rows)
+        log_fn(f"Saved {local_saved} new messages to local database", "info")
+    
     # Push to Google Sheets
     if push_to_sheet and all_rows and SHEET_ID:
         log_fn("Pushing to Google Sheets...")
         try:
             push_to_sheets(all_rows)
             log_fn(f"Pushed {len(all_rows)} rows to Google Sheets", "success")
+            log_audit("sheets_push_success", f"Pushed {len(all_rows)} rows")
         except Exception as e:
-            log_fn(f"Error pushing to Sheets: {str(e)}", "error")
+            log_fn(f"Error pushing to Sheets: {str(e)} - Data saved locally!", "error")
+            log_audit("sheets_push_failed", str(e), "error")
     elif not all_rows:
         log_fn("No messages to push", "warning")
     elif not SHEET_ID:
@@ -319,13 +345,38 @@ async def run_scraper_coroutine(channels_config, push_to_sheet, log_fn):
     return all_rows
 
 
-def run_scraper_async(channels_config, push_to_sheet=True):
-    """Run the scraper in a background thread."""
+def run_scraper_async(channels_config, export_options=None):
+    """Run the scraper in a background thread.
+    
+    Args:
+        channels_config: List of channel configurations
+        export_options: Dict with export settings:
+            - push_to_sheets: bool
+            - export_local: bool
+            - local_format: "csv" or "json"
+            - local_filename: str or None (auto-generate)
+            - local_append: bool
+    """
     global scheduler_config
+    
+    if export_options is None:
+        export_options = {"push_to_sheets": True}
+    
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
     all_rows = []
+    channel_names = [ch.get("name", "unknown") for ch in channels_config]
+    
+    log_audit("scrape_started", f"Channels: {', '.join(channel_names)}")
+    
+    push_to_sheets_flag = export_options.get("push_to_sheets", True)
+    export_local = export_options.get("export_local", False)
+    local_format = export_options.get("local_format", "csv")
+    local_filename = export_options.get("local_filename", None)
+    local_append = export_options.get("local_append", False)
+    save_location = export_options.get("save_location", "default")
+    custom_path = export_options.get("custom_path", None)
     
     try:
         scrape_status["running"] = True
@@ -338,11 +389,23 @@ def run_scraper_async(channels_config, push_to_sheet=True):
         socketio.emit('status', {"running": True, "progress": 0})
         
         all_rows = loop.run_until_complete(
-            run_scraper_coroutine(channels_config, push_to_sheet, log_message)
+            run_scraper_coroutine(channels_config, push_to_sheets_flag, log_message)
         )
         
         scrape_status["progress"] = 100
         log_message(f"Done! Total: {len(all_rows)} messages from {len(channels_config)} channel(s)", "success")
+        log_audit("scrape_completed", f"Total: {len(all_rows)} messages from {len(channels_config)} channels")
+        
+        # Export to local file if requested
+        if export_local and all_rows:
+            log_message(f"Exporting to local {local_format.upper()} file...")
+            result = export_data(all_rows, local_format, local_filename, local_append, save_location, custom_path)
+            if result["success"]:
+                log_message(f"Exported {result['rows']} rows to {result['filepath']} ({result['mode']})", "success")
+                log_audit("local_export_success", f"{result['filepath']} - {result['rows']} rows ({result['mode']})")
+            else:
+                log_message(f"Export failed: {result['error']}", "error")
+                log_audit("local_export_failed", result['error'], "error")
         
         # Update last_run timestamp
         scheduler_config["last_run"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -352,6 +415,7 @@ def run_scraper_async(channels_config, push_to_sheet=True):
     except Exception as e:
         scrape_status["error"] = str(e)
         log_message(f"Error: {str(e)}", "error")
+        log_audit("scrape_failed", str(e), "error")
     
     finally:
         scrape_status["running"] = False
@@ -410,11 +474,27 @@ def save_channels():
 @app.route('/api/scrape', methods=['POST'])
 def start_scrape():
     """Start a scrape job."""
+    global app_enabled
+    
+    if not app_enabled:
+        log_audit("scrape_blocked", "App is disabled", "warning")
+        return jsonify({"error": "App is disabled. Enable it first."}), 400
+    
     if scrape_status["running"]:
         return jsonify({"error": "Scraper is already running"}), 400
     
     data = request.json or {}
-    push_to_sheet = data.get("push_to_sheet", True)
+    
+    # Build export options
+    export_options = {
+        "push_to_sheets": data.get("push_to_sheets", True),
+        "export_local": data.get("export_local", False),
+        "local_format": data.get("local_format", "csv"),
+        "local_filename": data.get("local_filename", None),
+        "local_append": data.get("local_append", False),
+        "save_location": data.get("save_location", "default"),
+        "custom_path": data.get("custom_path", None)
+    }
     
     # Load channels and prepare config
     channels = load_channels()
@@ -422,7 +502,7 @@ def start_scrape():
         return jsonify({"error": "No channels configured"}), 400
     
     # Start scraper in background thread
-    thread = threading.Thread(target=run_scraper_async, args=(channels, push_to_sheet))
+    thread = threading.Thread(target=run_scraper_async, args=(channels, export_options))
     thread.daemon = True
     thread.start()
     
@@ -479,8 +559,119 @@ def kill_scrape():
     
     scrape_status["kill_requested"] = True
     log_message("🛑 KILL SWITCH ACTIVATED - Stopping all processes...", "error")
+    log_audit("kill_switch_activated", "User stopped running scrape")
     
     return jsonify({"success": True, "message": "Kill signal sent"})
+
+
+# ═══════════════════════════════════════════════════════════════
+# Audit Log API
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/audit', methods=['GET'])
+def get_audit():
+    """Get audit log entries."""
+    limit = request.args.get('limit', 100, type=int)
+    logs = get_audit_log(limit)
+    return jsonify(logs)
+
+
+@app.route('/api/audit', methods=['DELETE'])
+def clear_audit():
+    """Clear audit log."""
+    clear_audit_log()
+    log_audit("audit_log_cleared", "User cleared audit log")
+    return jsonify({"success": True})
+
+
+# ═══════════════════════════════════════════════════════════════
+# App Enable/Disable API
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/app/status', methods=['GET'])
+def get_app_status():
+    """Get app enabled status."""
+    global app_enabled
+    local_stats = get_local_message_count()
+    return jsonify({
+        "enabled": app_enabled,
+        "local_messages": local_stats
+    })
+
+
+@app.route('/api/app/toggle', methods=['POST'])
+def toggle_app():
+    """Toggle app enabled/disabled state."""
+    global app_enabled
+    app_enabled = not app_enabled
+    set_setting("app_enabled", app_enabled)
+    
+    status = "enabled" if app_enabled else "disabled"
+    log_audit(f"app_{status}", f"User {status} the app")
+    
+    return jsonify({"enabled": app_enabled})
+
+
+# ═══════════════════════════════════════════════════════════════
+# Reset Settings API
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/reset', methods=['POST'])
+def reset_settings():
+    """Reset all settings to defaults (keeps channels)."""
+    global scheduler_config, app_enabled
+    
+    # Reset scheduler config
+    scheduler_config = {
+        "enabled": False,
+        "time": "08:00",
+        "interval_hours": None,
+        "last_run": None,
+        "next_run": None
+    }
+    save_scheduler_config()
+    setup_scheduler()
+    
+    # Reset app enabled
+    app_enabled = True
+    set_setting("app_enabled", True)
+    
+    log_audit("settings_reset", "User reset all settings to defaults")
+    
+    return jsonify({
+        "success": True,
+        "message": "Settings reset to defaults (channels preserved)"
+    })
+
+
+# ═══════════════════════════════════════════════════════════════
+# Local Database Stats API
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/local-stats', methods=['GET'])
+def get_local_stats():
+    """Get local database statistics."""
+    stats = get_local_message_count()
+    return jsonify(stats)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Export Files API
+# ═══════════════════════════════════════════════════════════════
+
+@app.route('/api/exports', methods=['GET'])
+def list_exports():
+    """Get list of export files."""
+    location = request.args.get('location', 'default')
+    custom_path = request.args.get('custom_path', None)
+    files = get_export_files(location, custom_path)
+    return jsonify(files)
+
+
+@app.route('/api/export-formats', methods=['GET'])
+def get_formats():
+    """Get available export formats."""
+    return jsonify(get_available_formats())
 
 
 if __name__ == '__main__':
@@ -488,6 +679,9 @@ if __name__ == '__main__':
     print("  Telegram Scraper Web GUI")
     print("  Open http://localhost:5000 in your browser")
     print("=" * 50)
+    
+    # Load app enabled state from database
+    app_enabled = get_setting("app_enabled", True)
     
     # Load and start scheduler
     load_scheduler_config()
