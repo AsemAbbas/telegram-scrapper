@@ -816,12 +816,24 @@ def get_effective_theme(user_id: int = None) -> Dict:
     return site_theme
 
 
+import re as _re
+_HEX_COLOR_RE = _re.compile(r'^#[0-9a-fA-F]{3,8}$')
+
+
+def _sanitize_color(value: str, fallback: str = "#6366f1") -> str:
+    """Validate a CSS color value is a safe hex color."""
+    if value and _HEX_COLOR_RE.match(value.strip()):
+        return value.strip()
+    return fallback
+
+
 def theme_to_css(theme: Dict) -> str:
     """Convert a theme dict to CSS custom properties string."""
     lines = []
     for key, value in theme.items():
         css_var = f"--td-{key.replace('_', '-')}"
-        lines.append(f"{css_var}: {value};")
+        safe_value = _sanitize_color(value, DEFAULT_THEME.get(key, "#6366f1"))
+        lines.append(f"{css_var}: {safe_value};")
     # Generate computed colors (alpha variants)
     p = theme.get("primary", "#6366f1")
     lines.append(f"--td-primary-rgb: {_hex_to_rgb(p)};")

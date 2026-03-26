@@ -4,6 +4,9 @@ let appEnabled = true;
 let activeProcessLog = null;
 let userRole = document.body.dataset.role || 'viewer';
 
+// HTML escape helper to prevent XSS
+function esc(str) { if (!str && str !== 0) return ''; const d = document.createElement('div'); d.textContent = String(str); return d.innerHTML; }
+
 // TAB NAVIGATION
 function switchTab(tabName) {
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -106,7 +109,7 @@ function addLog(text, type) {
     const colors = { info: 'text-slate-300', success: 'text-green-400', error: 'text-red-400', warning: 'text-yellow-400' };
     const entry = document.createElement('div');
     entry.className = 'log-entry ' + (colors[type] || colors.info);
-    entry.innerHTML = '<span class="text-slate-600">[' + new Date().toLocaleTimeString() + ']</span> ' + text;
+    entry.innerHTML = '<span class="text-slate-600">[' + new Date().toLocaleTimeString() + ']</span> ' + esc(text);
     container.appendChild(entry);
     container.scrollTop = container.scrollHeight;
 }
@@ -116,7 +119,7 @@ function showResults(results) {
     const list = document.getElementById('results-list');
     if (!results || !results.length) { if (card) card.classList.add('hidden'); return; }
     card.classList.remove('hidden');
-    list.innerHTML = results.map(r => '<div class="flex items-center justify-between bg-[#0b1120] rounded-lg p-3"><span class="font-medium">' + r.channel + '</span><span class="' + (r.error ? 'text-red-400' : 'text-green-400') + '">' + (r.error ? 'Error' : r.messages + ' messages') + '</span></div>').join('');
+    list.innerHTML = results.map(r => '<div class="flex items-center justify-between bg-[#0b1120] rounded-lg p-3"><span class="font-medium">' + esc(r.channel) + '</span><span class="' + (r.error ? 'text-red-400' : 'text-green-400') + '">' + (r.error ? 'Error' : r.messages + ' messages') + '</span></div>').join('');
 }
 
 // SCRAPE
@@ -216,8 +219,8 @@ function loadAuditLog() {
         container.innerHTML = logs.map(log => {
             const sc = log.status === 'success' ? 'text-green-400' : log.status === 'error' ? 'text-red-400' : log.status === 'warning' ? 'text-yellow-400' : 'text-slate-400';
             const icon = log.status === 'success' ? '✓' : log.status === 'error' ? '✗' : log.status === 'warning' ? '⚠' : '•';
-            const userLabel = log.user_email ? '<span class="text-slate-500 text-xs ml-2">' + log.user_email + '</span>' : '';
-            return '<div class="flex items-start gap-2 text-sm border-b border-slate-800 pb-2"><span class="' + sc + '">' + icon + '</span><div class="flex-1"><div class="flex justify-between"><span class="font-medium text-slate-300">' + log.action.replace(/_/g, ' ') + userLabel + '</span><span class="text-slate-600 text-xs">' + log.timestamp + '</span></div>' + (log.details ? '<div class="text-slate-500 text-xs mt-1">' + log.details + '</div>' : '') + '</div></div>';
+            const userLabel = log.user_email ? '<span class="text-slate-500 text-xs ml-2">' + esc(log.user_email) + '</span>' : '';
+            return '<div class="flex items-start gap-2 text-sm border-b border-slate-800 pb-2"><span class="' + sc + '">' + icon + '</span><div class="flex-1"><div class="flex justify-between"><span class="font-medium text-slate-300">' + esc(log.action).replace(/_/g, ' ') + userLabel + '</span><span class="text-slate-600 text-xs">' + esc(log.timestamp) + '</span></div>' + (log.details ? '<div class="text-slate-500 text-xs mt-1">' + esc(log.details) + '</div>' : '') + '</div></div>';
         }).join('');
     }).catch(() => { document.getElementById('audit-container').innerHTML = '<div class="text-red-400 text-sm">Failed to load</div>'; });
 }
@@ -617,12 +620,11 @@ function loadDashboardStats() {
         const lastProc = data.last_process || {};
         const lastProcStatus = lastProc.status || 'N/A';
         const lastProcColor = lastProcStatus === 'completed' ? 'text-green-400' : lastProcStatus === 'running' ? 'text-blue-400' : lastProcStatus === 'error' ? 'text-red-400' : 'text-slate-400';
-        container.innerHTML = '<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">' +
-            '<div class="card"><div class="text-xs text-slate-500 mb-1">Last Process</div><div class="font-semibold text-white text-sm">' + (lastProc.name || 'None') + '</div><div class="flex items-center gap-2 mt-1"><span class="badge ' + lastProcColor + ' text-xs">' + lastProcStatus + '</span>' + (lastProc.last_run_at ? '<span class="text-xs text-slate-500">' + lastProc.last_run_at + '</span>' : '') + '</div></div>' +
-            '<div class="card"><div class="text-xs text-slate-500 mb-1">Total Messages</div><div class="text-2xl font-bold text-white">' + (data.total_messages || 0).toLocaleString() + '</div></div>' +
-            '<div class="card"><div class="text-xs text-slate-500 mb-1">Success Rate</div><div class="text-2xl font-bold ' + ((data.success_rate || 0) >= 80 ? 'text-green-400' : (data.success_rate || 0) >= 50 ? 'text-yellow-400' : 'text-red-400') + '">' + (data.success_rate || 0).toFixed(1) + '%</div></div>' +
-            '<div class="card"><div class="text-xs text-slate-500 mb-1">Today\'s Activity</div><div class="text-2xl font-bold text-blue-400">' + (data.today_activity || 0).toLocaleString() + '</div><div class="text-xs text-slate-500 mt-1">messages today</div></div>' +
-            '</div>';
+        container.innerHTML =
+            '<div class="stat-box"><div class="text-xs text-slate-500 mb-1">Last Process</div><div class="font-semibold text-white text-sm truncate">' + esc(lastProc.name || 'None') + '</div><div class="' + lastProcColor + ' text-xs mt-1">' + esc(lastProcStatus) + '</div></div>' +
+            '<div class="stat-box"><div class="text-xs text-slate-500 mb-1">Total Messages</div><div class="text-2xl font-bold text-white">' + (data.total_messages || 0).toLocaleString() + '</div></div>' +
+            '<div class="stat-box"><div class="text-xs text-slate-500 mb-1">Success Rate</div><div class="text-2xl font-bold ' + ((data.success_rate || 0) >= 80 ? 'text-green-400' : (data.success_rate || 0) >= 50 ? 'text-yellow-400' : 'text-red-400') + '">' + (data.success_rate || 0).toFixed(1) + '%</div></div>' +
+            '<div class="stat-box"><div class="text-xs text-slate-500 mb-1">Today</div><div class="text-2xl font-bold text-blue-400">' + (data.messages_today || 0).toLocaleString() + '</div><div class="text-xs text-slate-500">messages</div></div>';
     }).catch(() => {});
 }
 
@@ -634,19 +636,17 @@ function loadManagedChannels() {
         const container = document.getElementById('managed-channels-list');
         if (!container) return;
         if (!channels.length) { container.innerHTML = '<div class="text-slate-500 text-sm text-center py-8">No managed channels yet. Click "+ Add Channel" to create one.</div>'; return; }
-        container.innerHTML = channels.map(c => '<div class="card flex items-center justify-between"><div class="flex-1"><div class="flex items-center gap-2"><h3 class="font-semibold text-white">@' + c.username + '</h3>' + (c.title ? '<span class="text-slate-400 text-sm">- ' + c.title + '</span>' : '') + '</div>' + (c.description ? '<div class="text-xs text-slate-500 mt-1">' + c.description + '</div>' : '') + '<div class="flex items-center gap-4 mt-2"><span class="text-xs text-slate-400">' + (c.profile_count || 0) + ' profiles</span><span class="text-xs text-blue-400">' + (c.total_messages || 0).toLocaleString() + ' messages</span></div></div><button onclick="deleteManagedChannel(' + c.id + ')" class="text-red-400 hover:text-red-300 p-1 ml-3"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></div>').join('');
+        container.innerHTML = channels.map(c => '<div class="card flex items-center justify-between"><div class="flex-1"><div class="flex items-center gap-2"><h3 class="font-semibold text-white">@' + esc(c.username) + '</h3>' + (c.title ? '<span class="text-slate-400 text-sm">- ' + esc(c.title) + '</span>' : '') + '</div>' + (c.description ? '<div class="text-xs text-slate-500 mt-1">' + esc(c.description) + '</div>' : '') + '<div class="flex items-center gap-4 mt-2"><span class="text-xs text-slate-400">' + (c.profile_count || 0) + ' profiles</span><span class="text-xs text-blue-400">' + (c.total_messages || 0).toLocaleString() + ' messages</span></div></div><button onclick="deleteManagedChannel(' + c.id + ')" class="text-red-400 hover:text-red-300 p-1 ml-3"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button></div>').join('');
     }).catch(() => {});
 }
 function createManagedChannel() {
-    const username = document.getElementById('mc-username').value.trim();
-    const title = document.getElementById('mc-title').value.trim();
-    const description = document.getElementById('mc-desc').value.trim();
+    const username = document.getElementById('new-channel-username').value.trim();
+    const title = document.getElementById('new-channel-title').value.trim();
     if (!username) { alert('Channel username is required.'); return; }
-    fetch('/api/managed-channels', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, title, description }) }).then(r => r.json()).then(result => {
+    fetch('/api/managed-channels', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, title }) }).then(r => r.json()).then(result => {
         if (result.success || result.id) {
-            document.getElementById('mc-username').value = '';
-            document.getElementById('mc-title').value = '';
-            document.getElementById('mc-desc').value = '';
+            document.getElementById('new-channel-username').value = '';
+            document.getElementById('new-channel-title').value = '';
             loadManagedChannels();
             addLog('Channel @' + username + ' added', 'success');
         } else alert(result.error || 'Failed');
@@ -664,11 +664,14 @@ function loadThemePresets() {
     fetch('/api/themes/presets').then(r => r.json()).then(presets => {
         const container = document.getElementById('theme-presets-container');
         if (!container) return;
-        if (!presets.length) { container.innerHTML = '<div class="text-slate-500 text-sm">No theme presets available</div>'; return; }
-        container.innerHTML = presets.map(p => {
-            const swatches = (p.colors || []).map(c => '<span class="w-5 h-5 rounded-full inline-block border border-slate-600" style="background:' + c + '"></span>').join('');
-            return '<div class="card flex items-center justify-between"><div><div class="font-medium text-white">' + p.display_name + '</div><div class="flex items-center gap-1 mt-2">' + swatches + '</div></div><button onclick="applyThemePreset(\'' + p.name + '\')" class="btn-primary text-xs py-1 px-3">Apply</button></div>';
-        }).join('');
+        // API returns {key: {display_name, description, theme: {primary, ...}}}
+        const entries = Object.entries(presets);
+        if (!entries.length) { container.innerHTML = '<div class="text-slate-500 text-sm">No theme presets available</div>'; return; }
+        container.innerHTML = '<div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">' + entries.map(([key, p]) => {
+            const colors = Object.values(p.theme || {}).slice(0, 5);
+            const swatches = colors.map(c => '<span class="w-5 h-5 rounded-full inline-block border border-slate-600" style="background:' + esc(c) + '"></span>').join('');
+            return '<div class="p-3 rounded-lg" style="background:var(--td-bg-input);border:1px solid var(--td-border)"><div class="font-medium text-white text-sm">' + esc(p.display_name) + '</div><div class="text-xs text-slate-400 mb-2">' + esc(p.description || '') + '</div><div class="flex items-center gap-1 mb-2">' + swatches + '</div><button onclick="applyThemePreset(\'' + esc(key) + '\')" class="btn-primary text-xs py-1 px-3 w-full">Apply</button></div>';
+        }).join('') + '</div>';
     }).catch(() => {});
 }
 function applyThemePreset(presetName) {
@@ -682,15 +685,15 @@ function applyThemePreset(presetName) {
 // SECURITY QUESTION
 // ═══════════════════════════════════════
 function loadSecurityQuestions() {
-    fetch('/api/auth/security-questions').then(r => r.json()).then(data => {
+    fetch('/api/auth/security-questions').then(r => r.json()).then(questions => {
         const container = document.getElementById('security-question-section');
         if (!container) return;
-        const questions = data.questions || [];
-        const currentQ = data.current_question || '';
-        const selectHtml = questions.length > 0
-            ? '<select id="sec-question" class="input-field w-full mb-3">' + questions.map(q => '<option value="' + q + '"' + (q === currentQ ? ' selected' : '') + '>' + q + '</option>').join('') + '</select>'
-            : '<input type="text" id="sec-question" class="input-field w-full mb-3" placeholder="Enter your security question" value="' + currentQ + '">';
-        container.innerHTML = '<h3 class="text-sm font-semibold text-slate-300 mb-3">Security Question</h3>' + selectHtml + '<input type="text" id="sec-answer" class="input-field w-full mb-3" placeholder="Your answer">' + '<button onclick="saveSecurityQuestion()" class="btn-primary text-sm py-2 px-4">Save Security Question</button>';
+        // API returns a plain array of question strings
+        const qList = Array.isArray(questions) ? questions : [];
+        const selectHtml = qList.length > 0
+            ? '<select id="sec-question" class="input-field w-full mb-3"><option value="">-- Select a question --</option>' + qList.map(q => '<option value="' + esc(q) + '">' + esc(q) + '</option>').join('') + '</select>'
+            : '<input type="text" id="sec-question" class="input-field w-full mb-3" placeholder="Enter your security question">';
+        container.innerHTML = selectHtml + '<input type="text" id="sec-answer" class="input-field w-full mb-3" placeholder="Your answer">' + '<button onclick="saveSecurityQuestion()" class="btn-primary text-sm py-2 px-4">Save Security Question</button>';
     }).catch(() => {});
 }
 function saveSecurityQuestion() {

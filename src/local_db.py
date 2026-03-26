@@ -8,14 +8,18 @@ from datetime import datetime
 from pathlib import Path
 
 DB_PATH = Path(__file__).parent.parent / "data" / "scraper.db"
+_tables_initialized = False
 
 
 def get_connection():
     """Get database connection, creating tables if needed."""
+    global _tables_initialized
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(DB_PATH))
     conn.row_factory = sqlite3.Row
-    _init_tables(conn)
+    if not _tables_initialized:
+        _init_tables(conn)
+        _tables_initialized = True
     return conn
 
 

@@ -97,6 +97,13 @@ def audit(action: str, details: str = None, status: str = "success"):
     log_audit(action, details, status, user_id=uid, user_email=email)
 
 
+def _check_profile_ownership(profile, user):
+    """Check if user owns the profile. Admins can access any profile."""
+    if user["role"] == "admin":
+        return True
+    return profile and profile.get("user_id") == user["id"]
+
+
 def login_required(f):
     """Decorator to require authentication."""
     @functools.wraps(f)
@@ -658,7 +665,7 @@ def api_register():
         return jsonify({"error": result["error"]}), 400
 
     if status == "pending":
-        audit("user_registered_pending", f"{email} registered (pending approval)")
+        log_audit("user_registered_pending", f"{email} registered (pending approval)")
         return jsonify({"success": True, "pending": True,
                         "message": "Your account has been submitted for admin approval."})
 
@@ -1017,7 +1024,7 @@ def api_forgot_reset():
         return jsonify({"error": "Password must be at least 6 characters"}), 400
     result = reset_password_with_security(email, answer, new_password)
     if result["success"]:
-        audit("password_reset_security", f"Password reset via security question for {email}")
+        log_audit("password_reset_security", f"Password reset via security question for {email}")
     return jsonify(result), 200 if result["success"] else 400
 
 
@@ -1545,23 +1552,30 @@ def toggle_app():
 @app.route('/api/manager/overview', methods=['GET'])
 @login_required
 def api_manager_overview():
-    """Aggregate stats: profiles, processes, cron jobs, messages."""
+    """Aggregate stats: profiles, processes, cron jobs, messages. Scoped by user for non-admins."""
     from src.profiles import get_connection as get_prof_conn
     conn = get_prof_conn()
+    user = request.user
+    is_admin = user["role"] == "admin"
+
+    # Build WHERE clause for user scoping
+    profile_where = "" if is_admin else f"WHERE p.user_id = {user['id']}"
+    process_join_where = "" if is_admin else f"AND p.user_id = {user['id']}"
 
     # Profile stats
-    profiles = [dict(r) for r in conn.execute("""
+    profiles = [dict(r) for r in conn.execute(f"""
         SELECT p.id, p.name, p.channel_username, p.channel_title, p.is_active, p.created_at,
                COUNT(pr.id) as process_count,
                COALESCE(SUM(pr.messages_scraped), 0) as total_messages,
                (SELECT COUNT(*) FROM processes WHERE profile_id = p.id AND status = 'running') as running_count
         FROM profiles p
         LEFT JOIN processes pr ON p.id = pr.profile_id
+        {profile_where}
         GROUP BY p.id ORDER BY p.updated_at DESC
     """).fetchall()]
 
     # All processes (the "cron jobs")
-    all_processes = [dict(r) for r in conn.execute("""
+    all_processes = [dict(r) for r in conn.execute(f"""
         SELECT pr.id, pr.profile_id, pr.name, pr.process_type, pr.status,
                pr.schedule_enabled, pr.schedule_time, pr.schedule_interval_hours,
                pr.messages_scraped, pr.today_scraped, pr.today_date,
@@ -1569,12 +1583,18 @@ def api_manager_overview():
                pr.last_run_at, pr.next_run_at, pr.error_message, pr.created_at,
                p.channel_username, p.name as profile_name
         FROM processes pr
-        JOIN profiles p ON pr.profile_id = p.id
+        JOIN profiles p ON pr.profile_id = p.id {process_join_where}
         ORDER BY pr.status = 'running' DESC, pr.schedule_enabled DESC, pr.updated_at DESC
     """).fetchall()]
 
-    # Aggregate counts
-    total_msgs = conn.execute("SELECT COUNT(*) as c FROM scraped_messages").fetchone()["c"]
+    # Aggregate counts (scoped)
+    profile_ids = [p["id"] for p in profiles]
+    if profile_ids:
+        id_list = ",".join(str(i) for i in profile_ids)
+        total_msgs = conn.execute(f"SELECT COUNT(*) as c FROM scraped_messages WHERE profile_id IN ({id_list})").fetchone()["c"]
+    else:
+        total_msgs = 0 if not is_admin else conn.execute("SELECT COUNT(*) as c FROM scraped_messages").fetchone()["c"]
+
     status_counts = {}
     for row in conn.execute("SELECT status, COUNT(*) as c FROM processes GROUP BY status").fetchall():
         status_counts[row["status"]] = row["c"]
@@ -1843,6 +1863,8 @@ def api_get_profile(pid):
     profile = get_profile(pid)
     if not profile:
         return jsonify({"error": "Profile not found"}), 404
+    if not _check_profile_ownership(profile, request.user):
+        return jsonify({"error": "Access denied"}), 403
     profile["processes"] = get_profile_processes(pid)
     return jsonify(profile)
 
@@ -1851,6 +1873,11 @@ def api_get_profile(pid):
 @login_required
 def api_update_profile(pid):
     """Update a profile."""
+    profile = get_profile(pid)
+    if not profile:
+        return jsonify({"error": "Profile not found"}), 404
+    if not _check_profile_ownership(profile, request.user):
+        return jsonify({"error": "Access denied"}), 403
     data = request.json or {}
     result = update_profile(pid, **data)
     return jsonify(result)
@@ -1861,8 +1888,11 @@ def api_update_profile(pid):
 def api_delete_profile(pid):
     """Delete a profile."""
     profile = get_profile(pid)
-    if profile:
-        audit("profile_deleted", f"Deleted profile '{profile['name']}'")
+    if not profile:
+        return jsonify({"error": "Profile not found"}), 404
+    if not _check_profile_ownership(profile, request.user):
+        return jsonify({"error": "Access denied"}), 403
+    audit("profile_deleted", f"Deleted profile '{profile['name']}'")
     result = delete_profile(pid)
     return jsonify(result)
 
@@ -1875,6 +1905,11 @@ def api_delete_profile(pid):
 @login_required
 def api_get_processes(pid):
     """Get all processes for a profile."""
+    profile = get_profile(pid)
+    if not profile:
+        return jsonify({"error": "Profile not found"}), 404
+    if not _check_profile_ownership(profile, request.user):
+        return jsonify({"error": "Access denied"}), 403
     return jsonify(get_profile_processes(pid))
 
 
@@ -1882,6 +1917,11 @@ def api_get_processes(pid):
 @login_required
 def api_create_process(pid):
     """Create a new process for a profile."""
+    profile = get_profile(pid)
+    if not profile:
+        return jsonify({"error": "Profile not found"}), 404
+    if not _check_profile_ownership(profile, request.user):
+        return jsonify({"error": "Access denied"}), 403
     data = request.json or {}
     result = create_process(
         profile_id=pid,
@@ -1897,8 +1937,7 @@ def api_create_process(pid):
         schedule_interval_hours=data.get("schedule_interval_hours")
     )
     if result["success"]:
-        profile = get_profile(pid)
-        audit("process_created", f"Process '{data.get('name')}' for profile '{profile['name'] if profile else pid}'")
+        audit("process_created", f"Process '{data.get('name')}' for profile '{profile['name']}'")
     return jsonify(result), 200 if result["success"] else 400
 
 
@@ -1909,7 +1948,10 @@ def api_get_process(proc_id):
     progress = get_process_progress(proc_id)
     if not progress:
         return jsonify({"error": "Process not found"}), 404
-    # Add channel-level scraped stats for dedup visibility
+    # Check ownership via parent profile
+    profile = get_profile(progress.get("profile_id"))
+    if not _check_profile_ownership(profile, request.user):
+        return jsonify({"error": "Access denied"}), 403
     channel = progress.get("channel_username", "")
     if channel:
         progress["channel_stats"] = get_channel_scraped_stats(channel)
@@ -1920,6 +1962,12 @@ def api_get_process(proc_id):
 @login_required
 def api_update_process(proc_id):
     """Update a process."""
+    proc = get_process(proc_id)
+    if not proc:
+        return jsonify({"error": "Process not found"}), 404
+    profile = get_profile(proc.get("profile_id"))
+    if not _check_profile_ownership(profile, request.user):
+        return jsonify({"error": "Access denied"}), 403
     data = request.json or {}
     result = update_process(proc_id, **data)
     return jsonify(result)
@@ -1930,10 +1978,14 @@ def api_update_process(proc_id):
 def api_delete_process(proc_id):
     """Delete a process."""
     proc = get_process(proc_id)
-    if proc and proc["status"] == "running":
+    if not proc:
+        return jsonify({"error": "Process not found"}), 404
+    profile = get_profile(proc.get("profile_id"))
+    if not _check_profile_ownership(profile, request.user):
+        return jsonify({"error": "Access denied"}), 403
+    if proc["status"] == "running":
         return jsonify({"error": "Cannot delete a running process. Stop it first."}), 400
-    if proc:
-        audit("process_deleted", f"Deleted process '{proc['name']}'")
+    audit("process_deleted", f"Deleted process '{proc['name']}'")
     result = delete_process(proc_id)
     return jsonify(result)
 
@@ -2281,6 +2333,9 @@ def api_run_process(proc_id):
     proc = get_process(proc_id)
     if not proc:
         return jsonify({"error": "Process not found"}), 404
+    profile = get_profile(proc.get("profile_id"))
+    if not _check_profile_ownership(profile, request.user):
+        return jsonify({"error": "Access denied"}), 403
     if proc["status"] == "running":
         return jsonify({"error": "Process is already running"}), 400
 
@@ -2295,6 +2350,11 @@ def api_run_process(proc_id):
 @login_required
 def api_stop_process(proc_id):
     """Stop a running process."""
+    proc = get_process(proc_id)
+    if proc:
+        profile = get_profile(proc.get("profile_id"))
+        if not _check_profile_ownership(profile, request.user):
+            return jsonify({"error": "Access denied"}), 403
     status_key = f"process_{proc_id}"
     if status_key in profile_scrape_status:
         profile_scrape_status[status_key]["kill"] = True
