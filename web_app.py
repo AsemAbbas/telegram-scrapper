@@ -51,8 +51,10 @@ from telethon import TelegramClient
 from telethon.tl import types
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'teledrive-secret-change-me')
-socketio = SocketIO(app, cors_allowed_origins=os.getenv('CORS_ORIGIN', 'http://localhost:5000'), async_mode='threading')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'teledrive-dev-only-change-in-production')
+IS_PRODUCTION = os.getenv('FLASK_ENV') == 'production' or not os.getenv('FLASK_DEBUG')
+COOKIE_SECURE = os.getenv('COOKIE_SECURE', 'true' if IS_PRODUCTION else 'false') == 'true'
+socketio = SocketIO(app, cors_allowed_origins=os.getenv('CORS_ORIGIN', '*'), async_mode='threading')
 
 # Threading lock for scraper state
 scrape_lock = threading.Lock()
@@ -632,7 +634,7 @@ def api_login():
         "id": user["id"], "email": user["email"], "name": user["name"],
         "role": user["role"], "avatar_url": user.get("avatar_url")
     }}))
-    resp.set_cookie("td_session", token, max_age=30*24*3600, httponly=True, samesite="Lax")
+    resp.set_cookie("td_session", token, max_age=30*24*3600, httponly=True, samesite="Lax", secure=COOKIE_SECURE)
     log_audit("user_login", f"{user['email']} logged in", user_id=user["id"], user_email=user["email"])
     return resp
 
@@ -674,7 +676,7 @@ def api_register():
     resp = make_response(jsonify({"success": True, "user": {
         "id": user["id"], "email": user["email"], "name": user["name"], "role": user["role"]
     }}))
-    resp.set_cookie("td_session", token, max_age=30*24*3600, httponly=True, samesite="Lax")
+    resp.set_cookie("td_session", token, max_age=30*24*3600, httponly=True, samesite="Lax", secure=COOKIE_SECURE)
     log_audit("user_registered", f"{email} registered", user_id=result["id"], user_email=email)
     return resp
 
@@ -700,7 +702,7 @@ def api_google_login():
         "id": user["id"], "email": user["email"], "name": user["name"],
         "role": user["role"], "avatar_url": user.get("avatar_url")
     }}))
-    resp.set_cookie("td_session", token, max_age=30*24*3600, httponly=True, samesite="Lax")
+    resp.set_cookie("td_session", token, max_age=30*24*3600, httponly=True, samesite="Lax", secure=COOKIE_SECURE)
     audit("google_login", f"{email} logged in via Google")
     return resp
 
@@ -2414,4 +2416,5 @@ if __name__ == '__main__':
         print("  Scheduler: OFF")
     print()
     
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    debug = os.getenv('FLASK_DEBUG', '1') == '1'
+    socketio.run(app, host='0.0.0.0', port=int(os.getenv('PORT', 5000)), debug=debug, allow_unsafe_werkzeug=debug)

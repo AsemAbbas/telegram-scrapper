@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(pip install:*)",
-      "Bash(python -c \"import src.auth; print\\(''auth.py OK''\\); print\\(''Roles:'', list\\(src.auth.ROLES.keys\\(\\)\\)\\)\")"
+      "Bash(python -c \"import src.auth; print\\(''auth.py OK''\\); print\\(''Roles:'', list\\(src.auth.ROLES.keys\\(\\)\\)\\)\")",
+      "Bash(ls *.session *.json)",
+      "Bash(python -c \"import secrets; print\\(secrets.token_hex\\(32\\)\\)\")"
     ]
   }
 }
