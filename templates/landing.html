@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeleDrive — Telegram Channel Intelligence Platform</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { {{ theme_css | safe }} }
+        * { font-family: 'Inter', sans-serif; }
+        body { background: var(--td-bg); }
+        .brand-gradient { background: linear-gradient(135deg, var(--td-primary), var(--td-secondary)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .btn-primary {
+            background: linear-gradient(135deg, var(--td-primary), var(--td-secondary));
+            transition: all 0.3s;
+        }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-2px); box-shadow: 0 8px 30px rgba(var(--td-primary-rgb), 0.3); }
+        .btn-outline {
+            border: 1px solid rgba(var(--td-primary-rgb), 0.3);
+            color: var(--td-text);
+            transition: all 0.2s;
+        }
+        .btn-outline:hover { background: rgba(var(--td-primary-rgb), 0.1); border-color: var(--td-primary); }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.5);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(var(--td-primary-rgb), 0.08);
+            transition: all 0.3s;
+        }
+        .glass-card:hover { border-color: rgba(var(--td-primary-rgb), 0.2); transform: translateY(-4px); box-shadow: 0 12px 40px rgba(0,0,0,0.3); }
+        .bg-dots {
+            background-image: radial-gradient(rgba(var(--td-primary-rgb), 0.06) 1px, transparent 1px);
+            background-size: 24px 24px;
+        }
+        .glow-line {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(var(--td-primary-rgb), 0.3), transparent);
+        }
+        .step-number {
+            background: linear-gradient(135deg, var(--td-primary), var(--td-secondary));
+            width: 40px; height: 40px; border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; color: white; font-size: 1.1rem;
+        }
+        .hero-glow {
+            position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
+            width: 600px; height: 400px;
+            background: radial-gradient(ellipse, rgba(var(--td-primary-rgb), 0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+        .float-anim { animation: float 6s ease-in-out infinite; }
+    </style>
+</head>
+<body class="min-h-screen bg-dots text-slate-200">
+
+    <!-- Navbar -->
+    <nav class="fixed top-0 w-full z-50 border-b border-slate-800/50" style="background: rgba(11,15,26,0.85); backdrop-filter: blur(12px);">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <img src="/static/favicon.svg" alt="TeleDrive" class="w-9 h-9 rounded-xl">
+                <span class="text-xl font-bold brand-gradient">TeleDrive</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <a href="/login" class="btn-outline px-5 py-2 rounded-xl text-sm font-medium">Sign In</a>
+                <a href="/register" class="btn-primary px-5 py-2 rounded-xl text-sm font-medium text-white">Get Started</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="relative pt-32 pb-20 px-6 overflow-hidden">
+        <div class="hero-glow"></div>
+        <div class="max-w-4xl mx-auto text-center relative">
+            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-slate-700 text-xs text-slate-400 mb-8" style="background: rgba(30,41,59,0.5);">
+                <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                Open-source Telegram Intelligence Platform
+            </div>
+            <h1 class="text-5xl md:text-6xl font-extrabold leading-tight mb-6">
+                <span class="text-white">Scrape, Analyze &</span><br>
+                <span class="brand-gradient">Export Telegram Data</span>
+            </h1>
+            <p class="text-lg text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+                A powerful platform for scraping Telegram channel messages, scheduling automated collection,
+                and exporting data to Google Sheets, Excel, CSV, and JSON.
+            </p>
+            <div class="flex items-center justify-center gap-4">
+                <a href="/register" class="btn-primary px-8 py-3.5 rounded-xl text-base font-semibold text-white">
+                    Start Scraping
+                </a>
+                <a href="/login" class="btn-outline px-8 py-3.5 rounded-xl text-base font-medium">
+                    Sign In
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <div class="glow-line max-w-4xl mx-auto"></div>
+
+    <!-- Features Section -->
+    <section class="py-20 px-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-14">
+                <h2 class="text-3xl font-bold text-white mb-3">Everything You Need</h2>
+                <p class="text-slate-400 max-w-xl mx-auto">A complete toolkit for Telegram channel data intelligence, from collection to export.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Feature 1 -->
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style="background: rgba(var(--td-primary-rgb), 0.1);">
+                        <svg class="w-6 h-6" style="color: var(--td-primary)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-white font-semibold mb-2">Channel Scraping</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">Extract messages, reactions, media, mentions, and engagement metrics from any public Telegram channel.</p>
+                </div>
+                <!-- Feature 2 -->
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style="background: rgba(var(--td-secondary-rgb), 0.1);">
+                        <svg class="w-6 h-6" style="color: var(--td-secondary)" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-white font-semibold mb-2">Auto Scheduling</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">Set up daily or interval-based scraping schedules. Your data collection runs automatically in the background.</p>
+                </div>
+                <!-- Feature 3 -->
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style="background: rgba(34,197,94,0.1);">
+                        <svg class="w-6 h-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-white font-semibold mb-2">Multi-Format Export</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">Export your data to Google Sheets, Excel (XLSX), CSV, or JSON. Push directly or save locally.</p>
+                </div>
+                <!-- Feature 4 -->
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style="background: rgba(245,158,11,0.1);">
+                        <svg class="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-white font-semibold mb-2">Real-Time Analytics</h3>
+                    <p class="text-slate-400 text-sm leading-relaxed">Track views, forwards, reactions, and engagement metrics. Live progress updates via WebSocket.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="glow-line max-w-4xl mx-auto"></div>
+
+    <!-- How It Works -->
+    <section class="py-20 px-6">
+        <div class="max-w-4xl mx-auto">
+            <div class="text-center mb-14">
+                <h2 class="text-3xl font-bold text-white mb-3">How It Works</h2>
+                <p class="text-slate-400">Three simple steps to start collecting Telegram channel data.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="text-center">
+                    <div class="step-number mx-auto mb-4">1</div>
+                    <h3 class="text-white font-semibold mb-2">Connect</h3>
+                    <p class="text-slate-400 text-sm">Add your Telegram API credentials and connect your account securely.</p>
+                </div>
+                <div class="text-center">
+                    <div class="step-number mx-auto mb-4">2</div>
+                    <h3 class="text-white font-semibold mb-2">Configure</h3>
+                    <p class="text-slate-400 text-sm">Add channels, set date ranges, configure daily limits and scheduling options.</p>
+                </div>
+                <div class="text-center">
+                    <div class="step-number mx-auto mb-4">3</div>
+                    <h3 class="text-white font-semibold mb-2">Export</h3>
+                    <p class="text-slate-400 text-sm">Run scrapes and export data to Google Sheets, Excel, CSV, or JSON instantly.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="glow-line max-w-4xl mx-auto"></div>
+
+    <!-- CTA Section -->
+    <section class="py-20 px-6">
+        <div class="max-w-3xl mx-auto text-center">
+            <h2 class="text-3xl font-bold text-white mb-4">Ready to Get Started?</h2>
+            <p class="text-slate-400 mb-8">Create your account and start scraping Telegram channels in minutes.</p>
+            <a href="/register" class="btn-primary inline-block px-10 py-4 rounded-xl text-base font-semibold text-white">
+                Create Free Account
+            </a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800/50 py-8 px-6">
+        <div class="max-w-6xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <img src="/static/favicon.svg" alt="" class="w-6 h-6 rounded-lg">
+                <span class="text-sm text-slate-500">TeleDrive</span>
+            </div>
+            <p class="text-xs text-slate-600">Telegram Channel Intelligence Platform</p>
+        </div>
+    </footer>
+
+</body>
+</html>

@@ -8,18 +8,19 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #6366f1;
-            --primary-dark: #4f46e5;
-            --secondary: #8b5cf6;
-            --bg: #0b0f1a;
-            --bg-card: #111827;
+            {{ theme_css | safe }}
+            --primary: var(--td-primary, #6366f1);
+            --primary-dark: var(--td-primary-hover, #4f46e5);
+            --secondary: var(--td-secondary, #8b5cf6);
+            --bg: var(--td-bg, #0b0f1a);
+            --bg-card: var(--td-bg-card, #111827);
             --bg-card-hover: #1a2236;
-            --text: #e2e8f0;
-            --text-muted: #94a3b8;
-            --border: #1e293b;
-            --accent: #f59e0b;
-            --danger: #ef4444;
-            --success: #22c55e;
+            --text: var(--td-text, #e2e8f0);
+            --text-muted: var(--td-text-muted, #94a3b8);
+            --border: var(--td-border, #1e293b);
+            --accent: var(--td-warning, #f59e0b);
+            --danger: var(--td-danger, #ef4444);
+            --success: var(--td-success, #22c55e);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
         body { background: var(--bg); color: var(--text); line-height: 1.7; min-height: 100vh; }
@@ -29,7 +30,7 @@
         .header { text-align: center; padding: 3rem 0 2.5rem; border-bottom: 1px solid var(--border); margin-bottom: 2.5rem; }
         .header-logo { display: inline-flex; align-items: center; gap: 14px; margin-bottom: 1rem; }
         .header-logo img { width: 56px; height: 56px; border-radius: 16px; }
-        .header h1 { font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, #6366f1, #8b5cf6, #a78bfa); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header h1 { font-size: 2.5rem; font-weight: 700; background: linear-gradient(135deg, var(--primary), var(--secondary)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .header p { color: var(--text-muted); font-size: 1.05rem; margin-top: 0.5rem; }
         .header .badge { display: inline-block; margin-top: 1rem; padding: 6px 16px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; background: rgba(99,102,241,0.12); color: #a5b4fc; border: 1px solid rgba(99,102,241,0.2); }
 

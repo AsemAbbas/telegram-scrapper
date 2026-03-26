@@ -7,7 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; }
         .log-container { max-height: 400px; overflow-y: auto; }
@@ -15,976 +15,384 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         .pulse { animation: pulse 2s infinite; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .sidebar-btn { transition: all 0.2s; }
+        .sidebar-btn:hover, .sidebar-btn.active { background: rgba(59,130,246,0.15); color: #60a5fa; }
+        .sidebar-btn.active { border-right: 3px solid #3b82f6; }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .card { background: #1e293b; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1rem; border: 1px solid #334155; }
+        .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+        .stat-box { background: #0f172a; border-radius: 0.5rem; padding: 0.75rem; text-align: center; border: 1px solid #1e293b; }
+        .input-field { width: 100%; background: #0f172a; border: 1px solid #334155; color: white; border-radius: 0.5rem; padding: 0.5rem 0.75rem; font-size: 0.875rem; }
+        .input-field:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6; }
+        .btn-primary { background: #3b82f6; color: white; font-weight: 500; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: background 0.2s; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-danger { background: #dc2626; color: white; font-weight: 500; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: background 0.2s; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-secondary { background: #334155; color: #e2e8f0; font-weight: 500; padding: 0.5rem 1rem; border-radius: 0.5rem; transition: background 0.2s; }
+        .btn-secondary:hover { background: #475569; }
+        .badge { display: inline-flex; align-items: center; padding: 0.125rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
     </style>
 </head>
-<body class="bg-gray-900 text-white min-h-screen">
-    <div class="container mx-auto px-4 py-8 max-w-4xl">
-        <!-- Header -->
-        <div class="text-center mb-8">
-            <div class="flex items-center justify-center gap-4 mb-2">
-                <h1 class="text-3xl font-bold text-blue-400">📡 Telegram Scraper</h1>
-                <button id="app-toggle-btn" onclick="toggleApp()" 
-                    class="px-3 py-1 rounded-full text-sm font-medium transition-colors">
-                    Loading...
-                </button>
+<body class="bg-[#0b1120] text-gray-200 min-h-screen flex">
+
+    <!-- SIDEBAR -->
+    <aside class="w-56 bg-[#0f172a] border-r border-slate-800 fixed h-full flex flex-col z-40">
+        <div class="p-4 border-b border-slate-800">
+            <h1 class="text-lg font-bold text-blue-400 flex items-center gap-2">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                TG Scraper
+            </h1>
+            <div class="flex items-center gap-2 mt-2">
+                <button id="app-toggle-btn" onclick="toggleApp()" class="badge bg-green-600/20 text-green-400 cursor-pointer text-xs">Loading...</button>
             </div>
-            <p class="text-gray-400">Scrape Telegram channels → Google Sheets</p>
-            <div id="local-stats" class="text-xs text-gray-500 mt-1"></div>
         </div>
+        <nav class="flex-1 py-4 space-y-1">
+            <button onclick="switchTab('dashboard')" class="sidebar-btn active w-full text-left px-4 py-2.5 flex items-center gap-3 text-sm" data-tab="dashboard">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                Dashboard
+            </button>
+            <button onclick="switchTab('manager')" class="sidebar-btn w-full text-left px-4 py-2.5 flex items-center gap-3 text-sm" data-tab="manager">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                Manager
+            </button>
+            <button onclick="switchTab('profiles')" class="sidebar-btn w-full text-left px-4 py-2.5 flex items-center gap-3 text-sm" data-tab="profiles">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                Profiles
+            </button>
+            <button onclick="switchTab('channels')" class="sidebar-btn w-full text-left px-4 py-2.5 flex items-center gap-3 text-sm" data-tab="channels">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
+                Channels
+            </button>
+            <button onclick="switchTab('scheduler')" class="sidebar-btn w-full text-left px-4 py-2.5 flex items-center gap-3 text-sm" data-tab="scheduler">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Scheduler
+            </button>
+            <button onclick="switchTab('activity')" class="sidebar-btn w-full text-left px-4 py-2.5 flex items-center gap-3 text-sm" data-tab="activity">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                Activity
+            </button>
+            <button onclick="switchTab('settings')" class="sidebar-btn w-full text-left px-4 py-2.5 flex items-center gap-3 text-sm" data-tab="settings">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Settings
+            </button>
+        </nav>
+        <div class="p-4 border-t border-slate-800 text-xs text-slate-500"><div id="local-stats-sidebar"></div></div>
+    </aside>
 
-        <!-- Status Card -->
-        <div class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold">Status</h2>
-                <span id="status-badge" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-700 text-gray-300">
-                    Ready
-                </span>
-            </div>
-            
-            <!-- Progress Bar -->
-            <div class="mb-4">
-                <div class="flex justify-between text-sm text-gray-400 mb-1">
-                    <span id="current-task">Waiting to start...</span>
-                    <span id="progress-percent">0%</span>
-                </div>
-                <div class="w-full bg-gray-700 rounded-full h-3">
-                    <div id="progress-bar" class="bg-blue-500 h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
-                </div>
-            </div>
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 ml-56 p-6 max-w-6xl">
 
-            <!-- Export Options -->
-            <div class="mb-4 p-4 bg-gray-700/50 rounded-lg">
-                <h3 class="text-sm font-medium text-gray-300 mb-3">Export Options</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- Google Sheets Option -->
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="push-sheets" checked class="w-4 h-4 rounded bg-gray-600 border-gray-500">
-                        <span class="text-sm text-gray-300">📊 Push to Google Sheets</span>
-                    </label>
-                    
-                    <!-- Local File Option -->
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="export-local" onchange="toggleLocalExportOptions()" class="w-4 h-4 rounded bg-gray-600 border-gray-500">
-                        <span class="text-sm text-gray-300">💾 Save to Local File</span>
-                    </label>
+        <!-- TAB: DASHBOARD -->
+        <div id="tab-dashboard" class="tab-panel active">
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-2xl font-bold text-white">Dashboard</h2><p class="text-sm text-slate-400">Scrape Telegram channels to Google Sheets &amp; local files</p></div>
+                <span id="status-badge" class="badge bg-slate-700 text-slate-300 text-sm px-3 py-1">Ready</span>
+            </div>
+            <div class="card">
+                <div class="flex justify-between text-sm text-slate-400 mb-1"><span id="current-task">Waiting to start...</span><span id="progress-percent">0%</span></div>
+                <div class="w-full bg-slate-700 rounded-full h-2.5"><div id="progress-bar" class="bg-blue-500 h-2.5 rounded-full transition-all duration-300" style="width:0%"></div></div>
+            </div>
+            <div class="card">
+                <h3 class="text-sm font-semibold text-slate-300 mb-3">Export Options</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="push-sheets" checked class="w-4 h-4 rounded bg-slate-700 border-slate-600"><span class="text-sm text-slate-300">Push to Google Sheets</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="export-local" onchange="toggleLocalExportOptions()" class="w-4 h-4 rounded bg-slate-700 border-slate-600"><span class="text-sm text-slate-300">Save to Local File</span></label>
                 </div>
-                
-                <!-- Local Export Settings (hidden by default) -->
-                <div id="local-export-options" class="mt-4 p-3 bg-gray-800 rounded-lg hidden">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <!-- Format Selection -->
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Format</label>
-                            <select id="local-format" onchange="loadExportFiles()" class="w-full bg-gray-700 border-none text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                                <option value="csv">CSV</option>
-                                <option value="json">JSON</option>
-                                <option value="xlsx">Excel (.xlsx)</option>
-                            </select>
-                        </div>
-                        
-                        <!-- Save Location -->
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">Save To</label>
-                            <select id="save-location" onchange="toggleCustomPath()" class="w-full bg-gray-700 border-none text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                                <option value="default">📁 Project Folder</option>
-                                <option value="desktop">🖥️ Desktop</option>
-                                <option value="documents">📄 Documents</option>
-                                <option value="custom">📂 Custom Path...</option>
-                            </select>
-                        </div>
-                        
-                        <!-- File Mode -->
-                        <div>
-                            <label class="block text-xs text-gray-400 mb-1">File Mode</label>
-                            <select id="local-mode" onchange="toggleFilenameInput()" class="w-full bg-gray-700 border-none text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                                <option value="new">Create New File</option>
-                                <option value="append">Append to Existing</option>
-                            </select>
-                        </div>
+                <div id="local-export-options" class="p-3 bg-[#0b1120] rounded-lg hidden">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div><label class="block text-xs text-slate-500 mb-1">Format</label><select id="local-format" onchange="loadExportFiles()" class="input-field"><option value="csv">CSV</option><option value="json">JSON</option><option value="xlsx">Excel</option></select></div>
+                        <div><label class="block text-xs text-slate-500 mb-1">Save To</label><select id="save-location" onchange="toggleCustomPath()" class="input-field"><option value="default">Project Folder</option><option value="desktop">Desktop</option><option value="documents">Documents</option><option value="custom">Custom...</option></select></div>
+                        <div><label class="block text-xs text-slate-500 mb-1">File Mode</label><select id="local-mode" onchange="toggleFilenameInput()" class="input-field"><option value="new">Create New</option><option value="append">Append</option></select></div>
                     </div>
-                    
-                    <!-- Custom Path Input (hidden by default) -->
-                    <div id="custom-path-section" class="mt-3 hidden">
-                        <label class="block text-xs text-gray-400 mb-1">Custom Folder Path</label>
-                        <input type="text" id="custom-path" placeholder="e.g., C:\Users\YourName\MyFolder" 
-                            class="w-full bg-gray-700 border-none text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    </div>
-                    
-                    <!-- Custom Filename (for new file mode) -->
-                    <div id="custom-filename-section" class="mt-3">
-                        <label class="block text-xs text-gray-400 mb-1">Filename (optional, auto-generated if empty)</label>
-                        <input type="text" id="custom-filename" placeholder="e.g., telegram_data" 
-                            class="w-full bg-gray-700 border-none text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    </div>
-                    
-                    <!-- Existing Files (for append mode) -->
-                    <div id="existing-files-section" class="mt-3 hidden">
-                        <label class="block text-xs text-gray-400 mb-1">Select File to Append</label>
-                        <select id="existing-file" class="w-full bg-gray-700 border-none text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500">
-                            <option value="">Loading files...</option>
-                        </select>
-                    </div>
+                    <div id="custom-path-section" class="mt-3 hidden"><label class="block text-xs text-slate-500 mb-1">Custom Path</label><input type="text" id="custom-path" placeholder="C:\Users\..." class="input-field"></div>
+                    <div id="custom-filename-section" class="mt-3"><label class="block text-xs text-slate-500 mb-1">Filename (optional)</label><input type="text" id="custom-filename" placeholder="auto-generated" class="input-field"></div>
+                    <div id="existing-files-section" class="mt-3 hidden"><label class="block text-xs text-slate-500 mb-1">Append To</label><select id="existing-file" class="input-field"><option>Loading...</option></select></div>
                 </div>
             </div>
-
-            <!-- Action Buttons -->
-            <div class="flex gap-3">
-                <button id="start-btn" onclick="startScrape()" 
-                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                    </svg>
+            <div class="flex gap-3 mb-4">
+                <button id="start-btn" onclick="startScrape()" class="btn-primary flex-1 py-3 flex items-center justify-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     Start Scraping
                 </button>
-                <button id="kill-btn" onclick="killScrape()" 
-                    class="bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center gap-2 hidden">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path>
-                    </svg>
-                    STOP
-                </button>
+                <button id="kill-btn" onclick="killScrape()" class="btn-danger py-3 px-6 hidden">STOP</button>
+            </div>
+            <div id="results-card" class="card hidden"><h3 class="text-sm font-semibold text-slate-300 mb-3">Results</h3><div id="results-list" class="space-y-2"></div></div>
+            <div class="card">
+                <div class="card-header"><h3 class="text-sm font-semibold text-slate-300">Live Log</h3><button onclick="clearLogs()" class="text-slate-500 hover:text-slate-300 text-xs">Clear</button></div>
+                <div id="log-container" class="log-container bg-[#0b1120] rounded-lg p-4 font-mono text-sm space-y-1"><div class="text-slate-500">Waiting for activity...</div></div>
             </div>
         </div>
 
-        <!-- Scheduler Card -->
-        <div class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold">⏰ Schedule</h2>
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <span class="text-sm text-gray-400">Auto-run</span>
-                    <input type="checkbox" id="scheduler-enabled" onchange="toggleScheduler()" 
-                        class="w-10 h-5 bg-gray-700 rounded-full appearance-none cursor-pointer relative
-                        checked:bg-blue-600 transition-colors
-                        before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full 
-                        before:top-0.5 before:left-0.5 before:transition-transform checked:before:translate-x-5">
-                </label>
+        <!-- TAB: MANAGER -->
+        <div id="tab-manager" class="tab-panel">
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-2xl font-bold text-white">Manager</h2><p class="text-sm text-slate-400">Overview of all profiles, processes, and scheduled jobs</p></div>
+                <button onclick="loadManager()" class="btn-secondary text-sm py-2 px-3">Refresh</button>
             </div>
-            
-            <div id="scheduler-options" class="space-y-4">
-                <!-- Mode Selection -->
-                <div class="flex gap-4">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="schedule-mode" value="daily" checked onchange="updateScheduleMode()"
-                            class="w-4 h-4 bg-gray-700 border-gray-600">
-                        <span class="text-sm">Daily at specific time</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="schedule-mode" value="interval" onchange="updateScheduleMode()"
-                            class="w-4 h-4 bg-gray-700 border-gray-600">
-                        <span class="text-sm">Every X hours</span>
-                    </label>
+
+            <!-- Stat Cards Row -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6" id="mgr-stats">
+                <div class="card !mb-0 text-center"><div class="text-3xl font-extrabold text-blue-400" id="mgr-profile-count">-</div><div class="text-xs text-slate-500 mt-1">Profiles</div></div>
+                <div class="card !mb-0 text-center"><div class="text-3xl font-extrabold text-green-400" id="mgr-process-count">-</div><div class="text-xs text-slate-500 mt-1">Total Processes</div></div>
+                <div class="card !mb-0 text-center"><div class="text-3xl font-extrabold text-yellow-400" id="mgr-cron-count">-</div><div class="text-xs text-slate-500 mt-1">Scheduled Jobs</div></div>
+                <div class="card !mb-0 text-center"><div class="text-3xl font-extrabold text-purple-400" id="mgr-msg-count">-</div><div class="text-xs text-slate-500 mt-1">Total Messages</div></div>
+            </div>
+
+            <!-- Status Breakdown -->
+            <div class="card" id="mgr-status-bar-card">
+                <h3 class="text-sm font-semibold text-slate-300 mb-3">Process Status Breakdown</h3>
+                <div class="flex h-4 rounded-full overflow-hidden bg-slate-700 mb-3" id="mgr-status-bar"></div>
+                <div class="flex flex-wrap gap-3 text-xs" id="mgr-status-legend"></div>
+            </div>
+
+            <!-- Global Scheduler -->
+            <div class="card" id="mgr-global-sched-card">
+                <h3 class="text-sm font-semibold text-slate-300 mb-2">Global Scheduler</h3>
+                <div id="mgr-global-sched" class="text-sm text-slate-400"></div>
+            </div>
+
+            <!-- Profiles Table -->
+            <div class="card">
+                <h3 class="text-sm font-semibold text-slate-300 mb-3">Profiles</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase border-b border-slate-700">
+                            <tr><th class="py-2 px-3">Channel</th><th class="py-2 px-3">Processes</th><th class="py-2 px-3">Messages</th><th class="py-2 px-3">Running</th><th class="py-2 px-3">Status</th><th class="py-2 px-3">Created</th></tr>
+                        </thead>
+                        <tbody id="mgr-profiles-table" class="divide-y divide-slate-800"></tbody>
+                    </table>
                 </div>
-                
-                <!-- Daily Time -->
-                <div id="daily-options" class="flex items-center gap-3">
-                    <span class="text-gray-400 text-sm">Run at:</span>
-                    <input type="time" id="schedule-time" value="08:00"
-                        class="bg-gray-700 border-none text-white rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                <div id="mgr-profiles-empty" class="text-slate-500 text-sm text-center py-4 hidden">No profiles configured</div>
+            </div>
+
+            <!-- Cron Jobs / Scheduled Processes Table -->
+            <div class="card">
+                <h3 class="text-sm font-semibold text-slate-300 mb-3">All Processes &amp; Cron Jobs</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs text-slate-500 uppercase border-b border-slate-700">
+                            <tr><th class="py-2 px-3">Process</th><th class="py-2 px-3">Profile</th><th class="py-2 px-3">Type</th><th class="py-2 px-3">Status</th><th class="py-2 px-3">Schedule</th><th class="py-2 px-3">Messages</th><th class="py-2 px-3">Last Run</th><th class="py-2 px-3">Next Run</th></tr>
+                        </thead>
+                        <tbody id="mgr-jobs-table" class="divide-y divide-slate-800"></tbody>
+                    </table>
                 </div>
-                
-                <!-- Interval Hours -->
-                <div id="interval-options" class="flex items-center gap-3 hidden">
-                    <span class="text-gray-400 text-sm">Run every:</span>
-                    <select id="schedule-interval" class="bg-gray-700 border-none text-white rounded px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                        <option value="1">1 hour</option>
-                        <option value="2">2 hours</option>
-                        <option value="4">4 hours</option>
-                        <option value="6" selected>6 hours</option>
-                        <option value="8">8 hours</option>
-                        <option value="12">12 hours</option>
-                        <option value="24">24 hours</option>
-                    </select>
-                </div>
-                
-                <!-- Schedule Info -->
-                <div id="schedule-info" class="bg-gray-700/50 rounded-lg p-3 text-sm">
-                    <div class="flex justify-between">
-                        <span class="text-gray-400">Next run:</span>
-                        <span id="next-run" class="text-white">Not scheduled</span>
-                    </div>
-                    <div class="flex justify-between mt-1">
-                        <span class="text-gray-400">Last run:</span>
-                        <span id="last-run" class="text-white">Never</span>
-                    </div>
-                </div>
-                
-                <!-- Save Button -->
-                <button onclick="saveScheduler()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
-                    Save Schedule
-                </button>
+                <div id="mgr-jobs-empty" class="text-slate-500 text-sm text-center py-4 hidden">No processes configured</div>
             </div>
         </div>
 
-        <!-- Channels Card -->
-        <div class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold">Channels</h2>
-                <button onclick="addChannel()" class="text-blue-400 hover:text-blue-300 text-sm font-medium">
-                    + Add Channel
-                </button>
+        <!-- TAB: PROFILES -->
+        <div id="tab-profiles" class="tab-panel">
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-2xl font-bold text-white">Channel Profiles</h2><p class="text-sm text-slate-400">Manage scraping profiles with processes, date ranges, and daily limits</p></div>
+                <button onclick="showCreateProfileModal()" class="btn-primary text-sm py-2 px-4">+ New Profile</button>
             </div>
-            
+            <div id="profiles-list" class="space-y-3"><div class="text-slate-500 text-sm text-center py-8">Loading profiles...</div></div>
+        </div>
+
+        <!-- TAB: CHANNELS -->
+        <div id="tab-channels" class="tab-panel">
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-2xl font-bold text-white">Quick Channels</h2><p class="text-sm text-slate-400">Simple channel list for quick one-off scrapes from the Dashboard</p></div>
+                <button onclick="addChannel()" class="btn-primary text-sm py-2 px-4">+ Add Channel</button>
+            </div>
             <div id="channels-list" class="space-y-3">
                 {% for ch in channels %}
-                <div class="channel-item bg-gray-700/50 rounded-lg p-4">
+                <div class="channel-item card">
                     <div class="flex items-center gap-3 mb-3">
-                        <div class="flex-1">
-                            <input type="text" value="{{ ch.name }}" placeholder="Channel username" 
-                                class="channel-name bg-transparent border-none text-white w-full focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 text-lg font-medium">
-                        </div>
-                        <button onclick="removeChannel(this)" class="text-red-400 hover:text-red-300 p-1">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                            </svg>
-                        </button>
+                        <div class="flex-1"><input type="text" value="{{ ch.name }}" placeholder="Channel username" class="channel-name input-field text-lg font-medium bg-transparent border-none"></div>
+                        <button onclick="removeChannel(this)" class="text-red-400 hover:text-red-300 p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
                     </div>
-                    
-                    <!-- Mode Toggle -->
                     <div class="flex items-center gap-4 mb-3">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="mode-{{ loop.index }}" value="hours" {{ 'checked' if not ch.use_date_range else '' }} onchange="toggleChannelMode(this)"
-                                class="w-4 h-4 bg-gray-600 border-gray-500">
-                            <span class="text-sm text-gray-300">Last X hours</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="mode-{{ loop.index }}" value="daterange" {{ 'checked' if ch.use_date_range else '' }} onchange="toggleChannelMode(this)"
-                                class="w-4 h-4 bg-gray-600 border-gray-500">
-                            <span class="text-sm text-gray-300">Date range</span>
-                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="mode-{{ loop.index }}" value="hours" {{ 'checked' if not ch.use_date_range else '' }} onchange="toggleChannelMode(this)" class="w-4 h-4"><span class="text-sm text-slate-400">Last X hours</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="mode-{{ loop.index }}" value="daterange" {{ 'checked' if ch.use_date_range else '' }} onchange="toggleChannelMode(this)" class="w-4 h-4"><span class="text-sm text-slate-400">Date range</span></label>
                     </div>
-                    
-                    <!-- Hours Mode -->
                     <div class="channel-hours-mode flex items-center gap-2 {{ 'hidden' if ch.use_date_range else '' }}">
-                        <span class="text-gray-400 text-sm">Last</span>
-                        <input type="number" value="{{ ch.hours_back }}" min="1" max="8760"
-                            class="channel-hours w-20 bg-gray-600 border-none text-white text-center rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                        <span class="text-gray-400 text-sm">hours</span>
+                        <span class="text-slate-400 text-sm">Last</span><input type="number" value="{{ ch.hours_back }}" min="1" max="8760" class="channel-hours w-20 input-field text-center"><span class="text-slate-400 text-sm">hours</span>
                     </div>
-                    
-                    <!-- Date Range Mode -->
                     <div class="channel-daterange-mode flex flex-wrap items-center gap-3 {{ '' if ch.use_date_range else 'hidden' }}">
-                        <div class="flex items-center gap-2">
-                            <span class="text-gray-400 text-sm">From:</span>
-                            <input type="datetime-local" value="{{ ch.from_date_str or '' }}"
-                                class="channel-from-date bg-gray-600 border-none text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <span class="text-gray-400 text-sm">To:</span>
-                            <input type="datetime-local" value="{{ ch.to_date_str or '' }}"
-                                class="channel-to-date bg-gray-600 border-none text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
-                        </div>
-                        <button onclick="setToNow(this)" class="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 bg-gray-600 rounded">
-                            Set "To" = Now
-                        </button>
+                        <div class="flex items-center gap-2"><span class="text-slate-400 text-sm">From:</span><input type="datetime-local" value="{{ ch.from_date_str or '' }}" class="channel-from-date input-field text-sm"></div>
+                        <div class="flex items-center gap-2"><span class="text-slate-400 text-sm">To:</span><input type="datetime-local" value="{{ ch.to_date_str or '' }}" class="channel-to-date input-field text-sm"></div>
+                        <button onclick="setToNow(this)" class="text-blue-400 text-xs px-2 py-1 bg-slate-700 rounded">Now</button>
                     </div>
                 </div>
                 {% endfor %}
             </div>
-            
-            <button onclick="saveChannels()" class="mt-4 w-full bg-gray-700 hover:bg-gray-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
-                Save Channels
-            </button>
+            <button onclick="saveChannels()" class="mt-4 w-full btn-secondary py-2.5">Save Channels</button>
         </div>
 
-        <!-- Results Card -->
-        <div id="results-card" class="bg-gray-800 rounded-xl p-6 mb-6 shadow-lg hidden">
-            <h2 class="text-xl font-semibold mb-4">Results</h2>
-            <div id="results-list" class="space-y-2"></div>
-        </div>
-
-        <!-- Log Card -->
-        <div class="bg-gray-800 rounded-xl p-6 shadow-lg mb-6">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold">Activity Log</h2>
-                <button onclick="clearLogs()" class="text-gray-400 hover:text-gray-300 text-sm">Clear</button>
+        <!-- TAB: SCHEDULER -->
+        <div id="tab-scheduler" class="tab-panel">
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-2xl font-bold text-white">Scheduler</h2><p class="text-sm text-slate-400">Automate scraping with scheduled jobs</p></div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <span class="text-sm text-slate-400">Auto-run</span>
+                    <input type="checkbox" id="scheduler-enabled" onchange="toggleScheduler()" class="w-10 h-5 bg-slate-700 rounded-full appearance-none cursor-pointer relative checked:bg-blue-600 transition-colors before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full before:top-0.5 before:left-0.5 before:transition-transform checked:before:translate-x-5">
+                </label>
             </div>
-            <div id="log-container" class="log-container bg-gray-900 rounded-lg p-4 font-mono text-sm space-y-1">
-                <div class="text-gray-500">Waiting for activity...</div>
-            </div>
-        </div>
-
-        <!-- Audit History Card -->
-        <div class="bg-gray-800 rounded-xl p-6 shadow-lg mb-6">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold">📋 Audit History</h2>
-                <div class="flex gap-2">
-                    <button onclick="loadAuditLog()" class="text-blue-400 hover:text-blue-300 text-sm">Refresh</button>
-                    <button onclick="clearAuditLog()" class="text-red-400 hover:text-red-300 text-sm">Clear</button>
+            <div class="card">
+                <div id="scheduler-options" class="space-y-4">
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="schedule-mode" value="daily" checked onchange="updateScheduleMode()" class="w-4 h-4"><span class="text-sm">Daily at specific time</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="schedule-mode" value="interval" onchange="updateScheduleMode()" class="w-4 h-4"><span class="text-sm">Every X hours</span></label>
+                    </div>
+                    <div id="daily-options" class="flex items-center gap-3"><span class="text-slate-400 text-sm">Run at:</span><input type="time" id="schedule-time" value="08:00" class="input-field w-auto"></div>
+                    <div id="interval-options" class="flex items-center gap-3 hidden"><span class="text-slate-400 text-sm">Every:</span><select id="schedule-interval" class="input-field w-auto"><option value="1">1 hr</option><option value="2">2 hrs</option><option value="4">4 hrs</option><option value="6" selected>6 hrs</option><option value="8">8 hrs</option><option value="12">12 hrs</option><option value="24">24 hrs</option></select></div>
+                    <div class="bg-[#0b1120] rounded-lg p-4 text-sm">
+                        <div class="flex justify-between"><span class="text-slate-500">Next run:</span><span id="next-run" class="text-white">Not scheduled</span></div>
+                        <div class="flex justify-between mt-1"><span class="text-slate-500">Last run:</span><span id="last-run" class="text-white">Never</span></div>
+                    </div>
+                    <button onclick="saveScheduler()" class="w-full btn-primary py-2.5">Save Schedule</button>
                 </div>
             </div>
-            <div id="audit-container" class="max-h-64 overflow-y-auto bg-gray-900 rounded-lg p-4 space-y-2">
-                <div class="text-gray-500 text-sm">Loading audit history...</div>
+        </div>
+
+        <!-- TAB: ACTIVITY -->
+        <div id="tab-activity" class="tab-panel">
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-2xl font-bold text-white">Activity &amp; Audit Log</h2><p class="text-sm text-slate-400">Full history of scraping operations and system events</p></div>
+                <button onclick="clearAuditLog()" class="text-red-400 hover:text-red-300 text-sm">Clear History</button>
+            </div>
+            <div class="card"><div id="audit-container" class="space-y-3 max-h-[70vh] overflow-y-auto"><div class="text-slate-500 text-sm">Loading...</div></div></div>
+        </div>
+
+        <!-- TAB: SETTINGS -->
+        <div id="tab-settings" class="tab-panel">
+            <div class="mb-6"><h2 class="text-2xl font-bold text-white">Settings &amp; Accounts</h2><p class="text-sm text-slate-400">Manage API credentials and connections</p></div>
+
+            <!-- Telegram -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-blue-400" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                        Telegram API
+                    </h3>
+                    <div id="tg-status" class="badge bg-slate-700 text-slate-400">Unknown</div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-slate-500 mb-1">API ID</label><input type="text" id="set-tg-api-id" placeholder="e.g., 12345678" class="input-field"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">API Hash</label><input type="password" id="set-tg-api-hash" placeholder="Your API hash" class="input-field"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Phone Number</label><input type="text" id="set-tg-phone" placeholder="+1234567890" class="input-field"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Session Name</label><input type="text" id="set-tg-session" placeholder="scraper_session" class="input-field"></div>
+                </div>
+                <div class="flex gap-3 mt-4"><button onclick="saveAccounts('telegram')" class="btn-primary text-sm py-2 px-4">Save</button><button onclick="testTelegram()" class="btn-secondary text-sm py-2 px-4">Test Connection</button></div>
+                <div id="tg-test-result" class="mt-3 text-sm hidden"></div>
+            </div>
+
+            <!-- Google -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.385 2H4.615C3.17 2 2 3.17 2 4.615v14.77C2 20.83 3.17 22 4.615 22h14.77C20.83 22 22 20.83 22 19.385V4.615C22 3.17 20.83 2 19.385 2zM7 17.5H5v-2h2v2zm0-3H5v-2h2v2zm0-3H5v-2h2v2zm5 6H9v-2h3v2zm0-3H9v-2h3v2zm0-3H9v-2h3v2zm7 6h-5v-2h5v2zm0-3h-5v-2h5v2zm0-3h-5v-2h5v2z"/></svg>
+                        Google Sheets
+                    </h3>
+                    <div id="google-status" class="badge bg-slate-700 text-slate-400">Unknown</div>
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    <div><label class="block text-xs text-slate-500 mb-1">Service Account JSON (filename or inline)</label><input type="text" id="set-google-creds" placeholder="service-account.json" class="input-field"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Sheet ID</label><input type="text" id="set-sheet-id" placeholder="From URL: docs.google.com/spreadsheets/d/SHEET_ID" class="input-field"></div>
+                </div>
+                <div class="flex gap-3 mt-4"><button onclick="saveAccounts('google')" class="btn-primary text-sm py-2 px-4">Save</button><button onclick="testGoogle()" class="btn-secondary text-sm py-2 px-4">Test Connection</button></div>
+                <div id="google-test-result" class="mt-3 text-sm hidden"></div>
+            </div>
+
+            <!-- GitHub -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-slate-300" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                        GitHub
+                    </h3>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-slate-500 mb-1">Token</label><input type="password" id="set-github-token" placeholder="ghp_..." class="input-field"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Repository</label><input type="text" id="set-github-repo" placeholder="user/repo" class="input-field"></div>
+                </div>
+                <div class="flex gap-3 mt-4"><button onclick="saveAccounts('github')" class="btn-primary text-sm py-2 px-4">Save</button></div>
+            </div>
+
+            <!-- Danger -->
+            <div class="card border-red-900/50">
+                <h3 class="text-base font-semibold text-red-400 mb-3">Danger Zone</h3>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="resetSettings()" class="btn-danger text-sm py-2 px-4">Reset All Settings</button>
+                    <p class="text-slate-500 text-sm self-center">Resets scheduler and app settings (keeps channels and profiles)</p>
+                </div>
             </div>
         </div>
 
-        <!-- Settings Card -->
-        <div class="bg-gray-800 rounded-xl p-6 shadow-lg mb-6">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold">⚙️ Settings</h2>
-            </div>
-            <div class="flex flex-wrap gap-3">
-                <button onclick="resetSettings()" 
-                    class="bg-yellow-600 hover:bg-yellow-700 text-white font-medium py-2 px-4 rounded-lg transition-colors flex items-center gap-2">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-                    </svg>
-                    Reset to Defaults
-                </button>
-                <p class="text-gray-400 text-sm self-center">Resets scheduler and settings (keeps channels)</p>
-            </div>
-        </div>
+    </main>
 
-        <!-- Config Info -->
-        <div class="mt-6 text-center text-sm text-gray-500">
-            <p>Sheet ID: <code class="bg-gray-800 px-2 py-1 rounded">{{ sheet_id or 'Not configured' }}</code></p>
+    <!-- MODALS -->
+    <!-- Profile Modal -->
+    <div id="profile-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] rounded-xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-700">
+            <h3 id="profile-modal-title" class="text-lg font-semibold mb-4">New Profile</h3>
+            <input type="hidden" id="profile-edit-id" value="">
+            <div class="space-y-3">
+                <div><label class="block text-xs text-slate-500 mb-1">Profile Name</label><input type="text" id="profile-name" placeholder="e.g., DarbMirror Historical" class="input-field"></div>
+                <div><label class="block text-xs text-slate-500 mb-1">Channel Username (without @)</label><input type="text" id="profile-channel" placeholder="e.g., DarbMirror" class="input-field"></div>
+                <div><label class="block text-xs text-slate-500 mb-1">Description</label><input type="text" id="profile-desc" placeholder="Optional" class="input-field"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-xs text-slate-500 mb-1">Export Format</label><select id="profile-format" class="input-field"><option value="xlsx">Excel</option><option value="csv">CSV</option><option value="json">JSON</option></select></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Save Location</label><select id="profile-location" class="input-field"><option value="default">Project</option><option value="desktop">Desktop</option><option value="documents">Documents</option><option value="custom">Custom</option></select></div>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="profile-sheets" class="w-4 h-4 rounded bg-slate-700 border-slate-600"><span class="text-sm text-slate-300">Also push to Google Sheets</span></label>
+                <div class="border-t border-slate-700 pt-3">
+                    <h4 class="text-sm font-medium text-blue-400 mb-2">Scrape Settings</h4>
+                    <div class="grid grid-cols-2 gap-3"><div><label class="block text-xs text-slate-500 mb-1">From Date</label><input type="date" id="profile-from-date" class="input-field"></div><div><label class="block text-xs text-slate-500 mb-1">To Date</label><input type="date" id="profile-to-date" class="input-field"></div></div>
+                    <div class="grid grid-cols-2 gap-3 mt-3"><div><label class="block text-xs text-slate-500 mb-1">Daily Limit</label><input type="number" id="profile-daily-limit" value="50000" min="0" class="input-field"></div><div><label class="block text-xs text-slate-500 mb-1">Batch Delay (sec)</label><input type="number" id="profile-delay" value="1.0" min="0.3" step="0.1" class="input-field"></div></div>
+                    <p class="text-xs text-slate-500 mt-2">A scrape process will be auto-created with these settings.</p>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-5"><button onclick="saveProfile()" class="flex-1 btn-primary py-2">Save</button><button onclick="closeProfileModal()" class="flex-1 btn-secondary py-2">Cancel</button></div>
         </div>
     </div>
 
-    <script>
-        const socket = io();
-        let isRunning = false;
-        let appEnabled = true;
+    <!-- Process Modal -->
+    <div id="process-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] rounded-xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-700">
+            <h3 id="process-modal-title" class="text-lg font-semibold mb-4">New Process</h3>
+            <input type="hidden" id="process-profile-id" value=""><input type="hidden" id="process-edit-id" value="">
+            <div class="space-y-3">
+                <div><label class="block text-xs text-slate-500 mb-1">Process Name</label><input type="text" id="process-name" placeholder="e.g., Backfill 2023" class="input-field"></div>
+                <div><label class="block text-xs text-slate-500 mb-1">Type</label><select id="process-type" onchange="toggleProcessFields()" class="input-field"><option value="date_range">Date Range</option><option value="rolling">Rolling</option><option value="one_time">One-Time</option></select></div>
+                <div id="process-daterange-fields" class="grid grid-cols-2 gap-3"><div><label class="block text-xs text-slate-500 mb-1">From Date</label><input type="date" id="process-from-date" class="input-field"></div><div><label class="block text-xs text-slate-500 mb-1">To Date</label><input type="date" id="process-to-date" class="input-field"></div></div>
+                <div id="process-rolling-fields" class="hidden"><label class="block text-xs text-slate-500 mb-1">Hours Back</label><input type="number" id="process-hours" value="24" min="1" class="input-field"></div>
+                <div class="grid grid-cols-2 gap-3"><div><label class="block text-xs text-slate-500 mb-1">Daily Limit</label><input type="number" id="process-daily-limit" value="50000" min="0" class="input-field"></div><div><label class="block text-xs text-slate-500 mb-1">Batch Delay</label><input type="number" id="process-delay" value="1.0" min="0.3" step="0.1" class="input-field"></div></div>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="process-schedule" onchange="toggleScheduleFields()" class="w-4 h-4"><span class="text-sm text-slate-300">Enable Schedule</span></label>
+                <div id="process-schedule-fields" class="grid grid-cols-2 gap-3 hidden"><div><label class="block text-xs text-slate-500 mb-1">Run At (daily)</label><input type="time" id="process-schedule-time" value="08:00" class="input-field"></div><div><label class="block text-xs text-slate-500 mb-1">Or Every X Hours</label><input type="number" id="process-interval" placeholder="6" min="1" class="input-field"></div></div>
+            </div>
+            <div class="flex gap-3 mt-5"><button onclick="saveProcess()" class="flex-1 btn-primary py-2">Save</button><button onclick="closeProcessModal()" class="flex-1 btn-secondary py-2">Cancel</button></div>
+        </div>
+    </div>
 
-        // Initialize on page load
-        document.addEventListener('DOMContentLoaded', () => {
-            loadAppStatus();
-            loadAuditLog();
-        });
+    <!-- Process Log Modal -->
+    <div id="process-log-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] rounded-xl p-6 w-full max-w-2xl shadow-2xl border border-slate-700">
+            <div class="flex items-center justify-between mb-4"><h3 id="process-log-title" class="text-lg font-semibold">Process Log</h3><button onclick="closeProcessLogModal()" class="text-slate-400 hover:text-white text-xl">&times;</button></div>
+            <div id="process-log-container" class="log-container bg-[#0b1120] rounded-lg p-4 font-mono text-sm space-y-1 max-h-[60vh]"><div class="text-slate-500">Listening...</div></div>
+        </div>
+    </div>
 
-        // Socket events
-        socket.on('connect', () => {
-            console.log('Connected to server');
-        });
+    <!-- Kill Switch Overlay -->
+    <div id="app-disabled-overlay" class="fixed inset-0 bg-[#0b1120]/95 z-[100] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="text-center max-w-md mx-auto px-6">
+            <div class="w-20 h-20 mx-auto mb-6 rounded-full bg-red-600/10 border-2 border-red-600/30 flex items-center justify-center">
+                <svg class="w-10 h-10 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+            </div>
+            <h2 class="text-2xl font-bold text-red-400 mb-2">Program Halted</h2>
+            <p class="text-slate-400 text-sm mb-6">All processes have been stopped. The scraper is completely disabled.<br>No scraping, scheduling, or background tasks will run.</p>
+            <button onclick="toggleApp()" class="bg-green-600 hover:bg-green-500 text-white font-semibold px-8 py-3 rounded-xl transition text-sm cursor-pointer">
+                <span class="flex items-center gap-2 justify-center">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Re-enable Program
+                </span>
+            </button>
+            <p class="text-slate-600 text-xs mt-4">Click the button above to resume all operations</p>
+        </div>
+    </div>
 
-        socket.on('log', (data) => {
-            addLog(data.text, data.type);
-        });
-
-        socket.on('scheduler_update', (config) => {
-            document.getElementById('last-run').textContent = config.last_run || 'Never';
-            document.getElementById('next-run').textContent = config.next_run || 'Not scheduled';
-        });
-
-        socket.on('status', (data) => {
-            updateStatus(data.running, data.progress, data.channel);
-        });
-
-        socket.on('channel_done', (data) => {
-            addLog(`✓ ${data.channel}: ${data.count} messages`, 'success');
-        });
-
-        socket.on('done', (data) => {
-            isRunning = false;
-            updateStatus(false, 100);
-            showResults(data.results);
-            document.getElementById('start-btn').disabled = false;
-            document.getElementById('start-btn').classList.remove('opacity-50');
-        });
-
-        function updateStatus(running, progress, channel = '') {
-            const badge = document.getElementById('status-badge');
-            const progressBar = document.getElementById('progress-bar');
-            const progressPercent = document.getElementById('progress-percent');
-            const currentTask = document.getElementById('current-task');
-            const startBtn = document.getElementById('start-btn');
-            const killBtn = document.getElementById('kill-btn');
-
-            progressBar.style.width = progress + '%';
-            progressPercent.textContent = progress + '%';
-
-            if (running) {
-                badge.textContent = 'Running';
-                badge.className = 'px-3 py-1 rounded-full text-sm font-medium bg-blue-600 text-white pulse';
-                currentTask.textContent = channel ? `Scraping: ${channel}` : 'Processing...';
-                startBtn.disabled = true;
-                startBtn.classList.add('opacity-50');
-                killBtn.classList.remove('hidden');
-            } else {
-                badge.textContent = progress === 100 ? 'Completed' : 'Ready';
-                badge.className = progress === 100 
-                    ? 'px-3 py-1 rounded-full text-sm font-medium bg-green-600 text-white'
-                    : 'px-3 py-1 rounded-full text-sm font-medium bg-gray-700 text-gray-300';
-                currentTask.textContent = progress === 100 ? 'Scraping completed!' : 'Waiting to start...';
-                startBtn.disabled = false;
-                startBtn.classList.remove('opacity-50');
-                killBtn.classList.add('hidden');
-            }
-        }
-
-        function addLog(text, type = 'info') {
-            const container = document.getElementById('log-container');
-            if (container.querySelector('.text-gray-500')) {
-                container.innerHTML = '';
-            }
-
-            const colors = {
-                info: 'text-gray-300',
-                success: 'text-green-400',
-                error: 'text-red-400',
-                warning: 'text-yellow-400'
-            };
-
-            const time = new Date().toLocaleTimeString();
-            const entry = document.createElement('div');
-            entry.className = `log-entry ${colors[type] || colors.info}`;
-            entry.innerHTML = `<span class="text-gray-500">[${time}]</span> ${text}`;
-            container.appendChild(entry);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        function clearLogs() {
-            document.getElementById('log-container').innerHTML = '<div class="text-gray-500">Waiting for activity...</div>';
-        }
-
-        function showResults(results) {
-            const card = document.getElementById('results-card');
-            const list = document.getElementById('results-list');
-            
-            if (!results || results.length === 0) {
-                card.classList.add('hidden');
-                return;
-            }
-
-            card.classList.remove('hidden');
-            list.innerHTML = results.map(r => `
-                <div class="flex items-center justify-between bg-gray-700/50 rounded-lg p-3">
-                    <span class="font-medium">${r.channel}</span>
-                    <span class="${r.error ? 'text-red-400' : 'text-green-400'}">
-                        ${r.error ? 'Error' : r.messages + ' messages'}
-                    </span>
-                </div>
-            `).join('');
-        }
-
-        function startScrape() {
-            if (isRunning) return;
-            
-            isRunning = true;
-            
-            // Build export options
-            const pushToSheets = document.getElementById('push-sheets').checked;
-            const exportLocal = document.getElementById('export-local').checked;
-            const localFormat = document.getElementById('local-format').value;
-            const localMode = document.getElementById('local-mode').value;
-            const localAppend = localMode === 'append';
-            const saveLocation = document.getElementById('save-location').value;
-            const customPath = document.getElementById('custom-path').value.trim() || null;
-            
-            let localFilename = null;
-            if (exportLocal) {
-                if (localAppend) {
-                    localFilename = document.getElementById('existing-file').value;
-                } else {
-                    localFilename = document.getElementById('custom-filename').value.trim() || null;
-                }
-            }
-            
-            clearLogs();
-            addLog('Starting scraper...', 'info');
-            
-            if (pushToSheets) addLog('Will push to Google Sheets', 'info');
-            if (exportLocal) {
-                const modeText = localAppend ? `append to ${localFilename}` : 'create new file';
-                const locationText = saveLocation === 'custom' ? customPath : saveLocation;
-                addLog(`Will export to ${localFormat.toUpperCase()} in ${locationText} (${modeText})`, 'info');
-            }
-            
-            fetch('/api/scrape', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    push_to_sheets: pushToSheets,
-                    export_local: exportLocal,
-                    local_format: localFormat,
-                    local_filename: localFilename,
-                    local_append: localAppend,
-                    save_location: saveLocation,
-                    custom_path: customPath
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    addLog(data.error, 'error');
-                    isRunning = false;
-                    updateStatus(false, 0);
-                }
-            })
-            .catch(err => {
-                addLog('Failed to start scraper: ' + err, 'error');
-                isRunning = false;
-                updateStatus(false, 0);
-            });
-        }
-
-        function killScrape() {
-            if (!isRunning) return;
-            
-            addLog('Sending kill signal...', 'warning');
-            
-            fetch('/api/kill', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.error) {
-                    addLog(data.error, 'error');
-                } else {
-                    addLog('Kill signal sent - stopping...', 'warning');
-                }
-            })
-            .catch(err => {
-                addLog('Failed to send kill signal: ' + err, 'error');
-            });
-        }
-
-        function addChannel() {
-            const list = document.getElementById('channels-list');
-            const count = list.querySelectorAll('.channel-item').length + 1;
-            const item = document.createElement('div');
-            item.className = 'channel-item bg-gray-700/50 rounded-lg p-4';
-            item.innerHTML = `
-                <div class="flex items-center gap-3 mb-3">
-                    <div class="flex-1">
-                        <input type="text" placeholder="Channel username" 
-                            class="channel-name bg-transparent border-none text-white w-full focus:outline-none focus:ring-1 focus:ring-blue-500 rounded px-2 py-1 text-lg font-medium">
-                    </div>
-                    <button onclick="removeChannel(this)" class="text-red-400 hover:text-red-300 p-1">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
-                        </svg>
-                    </button>
-                </div>
-                
-                <!-- Mode Toggle -->
-                <div class="flex items-center gap-4 mb-3">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="mode-new-${count}" value="hours" checked onchange="toggleChannelMode(this)"
-                            class="w-4 h-4 bg-gray-600 border-gray-500">
-                        <span class="text-sm text-gray-300">Last X hours</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="mode-new-${count}" value="daterange" onchange="toggleChannelMode(this)"
-                            class="w-4 h-4 bg-gray-600 border-gray-500">
-                        <span class="text-sm text-gray-300">Date range</span>
-                    </label>
-                </div>
-                
-                <!-- Hours Mode -->
-                <div class="channel-hours-mode flex items-center gap-2">
-                    <span class="text-gray-400 text-sm">Last</span>
-                    <input type="number" value="24" min="1" max="8760"
-                        class="channel-hours w-20 bg-gray-600 border-none text-white text-center rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500">
-                    <span class="text-gray-400 text-sm">hours</span>
-                </div>
-                
-                <!-- Date Range Mode -->
-                <div class="channel-daterange-mode flex flex-wrap items-center gap-3 hidden">
-                    <div class="flex items-center gap-2">
-                        <span class="text-gray-400 text-sm">From:</span>
-                        <input type="datetime-local" value=""
-                            class="channel-from-date bg-gray-600 border-none text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <span class="text-gray-400 text-sm">To:</span>
-                        <input type="datetime-local" value=""
-                            class="channel-to-date bg-gray-600 border-none text-white rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 text-sm">
-                    </div>
-                    <button onclick="setToNow(this)" class="text-blue-400 hover:text-blue-300 text-xs px-2 py-1 bg-gray-600 rounded">
-                        Set "To" = Now
-                    </button>
-                </div>
-            `;
-            list.appendChild(item);
-        }
-
-        function removeChannel(btn) {
-            btn.closest('.channel-item').remove();
-        }
-
-        function toggleChannelMode(radio) {
-            const item = radio.closest('.channel-item');
-            const hoursMode = item.querySelector('.channel-hours-mode');
-            const daterangeMode = item.querySelector('.channel-daterange-mode');
-            
-            if (radio.value === 'hours') {
-                hoursMode.classList.remove('hidden');
-                daterangeMode.classList.add('hidden');
-            } else {
-                hoursMode.classList.add('hidden');
-                daterangeMode.classList.remove('hidden');
-            }
-        }
-        
-        function setToNow(btn) {
-            const item = btn.closest('.channel-item');
-            const toDateInput = item.querySelector('.channel-to-date');
-            const now = new Date();
-            // Format as YYYY-MM-DDTHH:MM for datetime-local input
-            const formatted = now.getFullYear() + '-' + 
-                String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-                String(now.getDate()).padStart(2, '0') + 'T' + 
-                String(now.getHours()).padStart(2, '0') + ':' + 
-                String(now.getMinutes()).padStart(2, '0');
-            toDateInput.value = formatted;
-        }
-
-        function saveChannels() {
-            const items = document.querySelectorAll('.channel-item');
-            const channels = [];
-            
-            items.forEach(item => {
-                const name = item.querySelector('.channel-name').value.trim();
-                const hours = parseInt(item.querySelector('.channel-hours').value) || 24;
-                const modeRadio = item.querySelector('input[type="radio"]:checked');
-                const useDateRange = modeRadio && modeRadio.value === 'daterange';
-                const fromDate = item.querySelector('.channel-from-date').value;
-                const toDate = item.querySelector('.channel-to-date').value;
-                
-                if (name) {
-                    const channelData = { 
-                        name, 
-                        hours_back: hours,
-                        use_date_range: useDateRange
-                    };
-                    
-                    if (useDateRange) {
-                        channelData.from_date_str = fromDate;
-                        channelData.to_date_str = toDate;
-                    }
-                    
-                    channels.push(channelData);
-                }
-            });
-
-            fetch('/api/channels', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ channels, default_hours: 24 })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    addLog('Channels saved!', 'success');
-                }
-            })
-            .catch(err => {
-                addLog('Failed to save channels: ' + err, 'error');
-            });
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        // SCHEDULER FUNCTIONS
-        // ═══════════════════════════════════════════════════════════════
-        
-        function loadScheduler() {
-            fetch('/api/scheduler')
-                .then(res => res.json())
-                .then(config => {
-                    document.getElementById('scheduler-enabled').checked = config.enabled;
-                    document.getElementById('schedule-time').value = config.time || '08:00';
-                    
-                    if (config.interval_hours) {
-                        document.querySelector('input[name="schedule-mode"][value="interval"]').checked = true;
-                        document.getElementById('schedule-interval').value = config.interval_hours;
-                        updateScheduleMode();
-                    }
-                    
-                    document.getElementById('next-run').textContent = config.next_run || 'Not scheduled';
-                    document.getElementById('last-run').textContent = config.last_run || 'Never';
-                    
-                    toggleSchedulerUI(config.enabled);
-                })
-                .catch(err => console.error('Failed to load scheduler:', err));
-        }
-
-        function toggleScheduler() {
-            const enabled = document.getElementById('scheduler-enabled').checked;
-            toggleSchedulerUI(enabled);
-        }
-
-        function toggleSchedulerUI(enabled) {
-            const options = document.getElementById('scheduler-options');
-            if (enabled) {
-                options.classList.remove('opacity-50', 'pointer-events-none');
-            } else {
-                options.classList.add('opacity-50', 'pointer-events-none');
-            }
-        }
-
-        function updateScheduleMode() {
-            const mode = document.querySelector('input[name="schedule-mode"]:checked').value;
-            const dailyOptions = document.getElementById('daily-options');
-            const intervalOptions = document.getElementById('interval-options');
-            
-            if (mode === 'daily') {
-                dailyOptions.classList.remove('hidden');
-                intervalOptions.classList.add('hidden');
-            } else {
-                dailyOptions.classList.add('hidden');
-                intervalOptions.classList.remove('hidden');
-            }
-        }
-
-        function saveScheduler() {
-            const enabled = document.getElementById('scheduler-enabled').checked;
-            const mode = document.querySelector('input[name="schedule-mode"]:checked').value;
-            const time = document.getElementById('schedule-time').value;
-            const intervalHours = mode === 'interval' ? parseInt(document.getElementById('schedule-interval').value) : null;
-            
-            fetch('/api/scheduler', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    enabled,
-                    time,
-                    interval_hours: intervalHours
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    addLog('Schedule saved!', 'success');
-                    document.getElementById('next-run').textContent = data.config.next_run || 'Not scheduled';
-                    
-                    if (enabled) {
-                        addLog(`Next run: ${data.config.next_run}`, 'info');
-                    }
-                }
-            })
-            .catch(err => {
-                addLog('Failed to save schedule: ' + err, 'error');
-            });
-        }
-
-        // Load scheduler config on page load
-        document.addEventListener('DOMContentLoaded', loadScheduler);
-
-        // ═══════════════════════════════════════════════════════════════
-        // APP ENABLE/DISABLE FUNCTIONS
-        // ═══════════════════════════════════════════════════════════════
-
-        function loadAppStatus() {
-            fetch('/api/app/status')
-                .then(res => res.json())
-                .then(data => {
-                    appEnabled = data.enabled;
-                    updateAppToggleButton();
-                    updateLocalStats(data.local_messages);
-                })
-                .catch(err => console.error('Failed to load app status:', err));
-        }
-
-        function toggleApp() {
-            fetch('/api/app/toggle', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(res => res.json())
-            .then(data => {
-                appEnabled = data.enabled;
-                updateAppToggleButton();
-                addLog(`App ${appEnabled ? 'ENABLED' : 'DISABLED'}`, appEnabled ? 'success' : 'warning');
-            })
-            .catch(err => {
-                addLog('Failed to toggle app: ' + err, 'error');
-            });
-        }
-
-        function updateAppToggleButton() {
-            const btn = document.getElementById('app-toggle-btn');
-            const startBtn = document.getElementById('start-btn');
-            
-            if (appEnabled) {
-                btn.textContent = '✓ Enabled';
-                btn.className = 'px-3 py-1 rounded-full text-sm font-medium bg-green-600 text-white transition-colors hover:bg-green-700';
-                startBtn.disabled = false;
-                startBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-            } else {
-                btn.textContent = '✗ Disabled';
-                btn.className = 'px-3 py-1 rounded-full text-sm font-medium bg-red-600 text-white transition-colors hover:bg-red-700';
-                startBtn.disabled = true;
-                startBtn.classList.add('opacity-50', 'cursor-not-allowed');
-            }
-        }
-
-        function updateLocalStats(stats) {
-            const el = document.getElementById('local-stats');
-            if (stats && stats.total > 0) {
-                el.textContent = `💾 Local backup: ${stats.total} messages (${stats.unsynced} unsynced)`;
-            } else {
-                el.textContent = '';
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        // AUDIT LOG FUNCTIONS
-        // ═══════════════════════════════════════════════════════════════
-
-        function loadAuditLog() {
-            fetch('/api/audit?limit=50')
-                .then(res => res.json())
-                .then(logs => {
-                    const container = document.getElementById('audit-container');
-                    
-                    if (!logs || logs.length === 0) {
-                        container.innerHTML = '<div class="text-gray-500 text-sm">No audit history yet</div>';
-                        return;
-                    }
-                    
-                    container.innerHTML = logs.map(log => {
-                        const statusColor = log.status === 'success' ? 'text-green-400' : 
-                                          log.status === 'error' ? 'text-red-400' : 
-                                          log.status === 'warning' ? 'text-yellow-400' : 'text-gray-400';
-                        const icon = log.status === 'success' ? '✓' : 
-                                   log.status === 'error' ? '✗' : 
-                                   log.status === 'warning' ? '⚠' : '•';
-                        
-                        return `
-                            <div class="flex items-start gap-2 text-sm border-b border-gray-700 pb-2">
-                                <span class="${statusColor}">${icon}</span>
-                                <div class="flex-1">
-                                    <div class="flex justify-between">
-                                        <span class="font-medium text-gray-300">${log.action.replace(/_/g, ' ')}</span>
-                                        <span class="text-gray-500 text-xs">${log.timestamp}</span>
-                                    </div>
-                                    ${log.details ? `<div class="text-gray-500 text-xs mt-1">${log.details}</div>` : ''}
-                                </div>
-                            </div>
-                        `;
-                    }).join('');
-                })
-                .catch(err => {
-                    document.getElementById('audit-container').innerHTML = 
-                        '<div class="text-red-400 text-sm">Failed to load audit log</div>';
-                });
-        }
-
-        function clearAuditLog() {
-            if (!confirm('Clear all audit history?')) return;
-            
-            fetch('/api/audit', { method: 'DELETE' })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        loadAuditLog();
-                        addLog('Audit history cleared', 'success');
-                    }
-                })
-                .catch(err => {
-                    addLog('Failed to clear audit log: ' + err, 'error');
-                });
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        // RESET SETTINGS FUNCTION
-        // ═══════════════════════════════════════════════════════════════
-
-        function resetSettings() {
-            if (!confirm('Reset all settings to defaults? This will:\n• Disable scheduler\n• Reset schedule time to 08:00\n• Enable the app\n\nYour channels will be preserved.')) return;
-            
-            fetch('/api/reset', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    addLog('Settings reset to defaults!', 'success');
-                    // Reload the page to reflect changes
-                    setTimeout(() => location.reload(), 1000);
-                }
-            })
-            .catch(err => {
-                addLog('Failed to reset settings: ' + err, 'error');
-            });
-        }
-
-        // ═══════════════════════════════════════════════════════════════
-        // LOCAL EXPORT FUNCTIONS
-        // ═══════════════════════════════════════════════════════════════
-
-        function toggleLocalExportOptions() {
-            const exportLocal = document.getElementById('export-local').checked;
-            const optionsDiv = document.getElementById('local-export-options');
-            
-            if (exportLocal) {
-                optionsDiv.classList.remove('hidden');
-                loadExportFiles();
-            } else {
-                optionsDiv.classList.add('hidden');
-            }
-        }
-
-        function toggleFilenameInput() {
-            const mode = document.getElementById('local-mode').value;
-            const existingSection = document.getElementById('existing-files-section');
-            const customSection = document.getElementById('custom-filename-section');
-            
-            if (mode === 'append') {
-                existingSection.classList.remove('hidden');
-                customSection.classList.add('hidden');
-                loadExportFiles();
-            } else {
-                existingSection.classList.add('hidden');
-                customSection.classList.remove('hidden');
-            }
-        }
-
-        function toggleCustomPath() {
-            const location = document.getElementById('save-location').value;
-            const customPathSection = document.getElementById('custom-path-section');
-            
-            if (location === 'custom') {
-                customPathSection.classList.remove('hidden');
-            } else {
-                customPathSection.classList.add('hidden');
-            }
-            
-            // Reload files for the new location
-            loadExportFiles();
-        }
-
-        function loadExportFiles() {
-            const format = document.getElementById('local-format').value;
-            const location = document.getElementById('save-location').value;
-            const customPath = document.getElementById('custom-path').value.trim() || null;
-            
-            let url = `/api/exports?location=${location}`;
-            if (location === 'custom' && customPath) {
-                url += `&custom_path=${encodeURIComponent(customPath)}`;
-            }
-            
-            fetch(url)
-                .then(res => res.json())
-                .then(files => {
-                    const select = document.getElementById('existing-file');
-                    const filteredFiles = files.filter(f => f.format === format);
-                    
-                    if (filteredFiles.length === 0) {
-                        select.innerHTML = '<option value="">No existing files</option>';
-                    } else {
-                        select.innerHTML = filteredFiles.map(f => 
-                            `<option value="${f.name}">${f.name} (${formatBytes(f.size)}, ${f.modified})</option>`
-                        ).join('');
-                    }
-                })
-                .catch(err => {
-                    document.getElementById('existing-file').innerHTML = 
-                        '<option value="">Failed to load files</option>';
-                });
-        }
-
-        function formatBytes(bytes) {
-            if (bytes === 0) return '0 B';
-            const k = 1024;
-            const sizes = ['B', 'KB', 'MB', 'GB'];
-            const i = Math.floor(Math.log(bytes) / Math.log(k));
-            return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-        }
-    </script>
+    <script src="/static/app.js"></script>
 </body>
 </html>

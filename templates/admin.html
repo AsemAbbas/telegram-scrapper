@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeleDrive — Admin Panel</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { {{ theme_css | safe }} }
+        * { font-family: 'Inter', sans-serif; }
+        body { background: var(--td-bg); }
+        .brand-gradient { background: linear-gradient(135deg, var(--td-primary), var(--td-secondary)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .card { background: var(--td-bg-card); border: 1px solid rgba(var(--td-primary-rgb), 0.08); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+        .badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+        .btn-primary { background: linear-gradient(135deg, var(--td-primary), var(--td-secondary)); color: white; border-radius: 10px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none; }
+        .btn-primary:hover { opacity: 0.9; }
+        .btn-secondary { background: var(--td-border); color: var(--td-text); border-radius: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: none; }
+        .btn-secondary:hover { opacity: 0.85; }
+        .btn-danger { background: #991b1b; color: #fca5a5; border-radius: 10px; font-weight: 500; cursor: pointer; border: none; }
+        .btn-danger:hover { background: #b91c1c; }
+        .input-field { background: var(--td-bg-input); color: var(--td-text); border: 1px solid var(--td-border); border-radius: 10px; padding: 0.6rem 0.85rem; width: 100%; font-size: 0.875rem; }
+        .input-field:focus { border-color: var(--td-primary); outline: none; box-shadow: 0 0 0 3px rgba(var(--td-primary-rgb), 0.1); }
+        .stat-box { background: var(--td-bg-input); border: 1px solid var(--td-bg-card); border-radius: 10px; padding: 1rem; text-align: center; }
+        .guide-tip { background: rgba(var(--td-primary-rgb), 0.05); border: 1px solid rgba(var(--td-primary-rgb), 0.1); border-radius: 8px; padding: 0.6rem 0.75rem; }
+        .guide-tip p { color: var(--td-text-muted); font-size: 0.75rem; line-height: 1.5; }
+        .tab-btn { padding: 0.5rem 1rem; border-radius: 8px; font-size: 0.875rem; cursor: pointer; transition: all 0.15s; border: none; background: transparent; color: var(--td-text-muted); }
+        .tab-btn.active { background: rgba(var(--td-primary-rgb), 0.15); color: var(--td-primary); }
+        .tab-btn:hover { background: rgba(var(--td-primary-rgb), 0.08); }
+        .admin-panel { display: none; }
+        .admin-panel.active { display: block; }
+        .toggle-switch { width: 2.5rem; height: 1.25rem; background: #475569; border-radius: 9999px; position: relative; cursor: pointer; transition: background 0.2s; appearance: none; }
+        .toggle-switch:checked { background: var(--td-primary); }
+        .toggle-switch::before { content: ''; position: absolute; width: 1rem; height: 1rem; background: white; border-radius: 50%; top: 0.125rem; left: 0.125rem; transition: transform 0.2s; }
+        .toggle-switch:checked::before { transform: translateX(1.25rem); }
+        .color-swatch { width: 40px; height: 40px; border-radius: 10px; border: 2px solid var(--td-border); cursor: pointer; padding: 0; }
+        .color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+        .color-swatch::-webkit-color-swatch { border: none; border-radius: 8px; }
+        .theme-preview { background: var(--td-bg); border: 1px solid var(--td-border); border-radius: 12px; padding: 1rem; }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen">
+    <!-- Top Bar -->
+    <div class="border-b border-slate-800" style="background:var(--td-bg-sidebar)">
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <a href="/dashboard" class="flex items-center gap-2 text-slate-400 hover:text-white transition text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+                    Back to App
+                </a>
+                <div class="h-5 w-px bg-slate-700"></div>
+                <div class="flex items-center gap-2">
+                    <img src="/static/favicon.svg" alt="" class="w-7 h-7 rounded-lg">
+                    <h1 class="text-lg font-bold brand-gradient">Admin Panel</h1>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span class="badge bg-indigo-600/20 text-indigo-300">{{ user.name }}</span>
+                <span class="badge bg-amber-600/20 text-amber-300">Admin</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto px-6 py-6">
+        <!-- Admin Tabs -->
+        <div class="flex gap-2 mb-6 border-b border-slate-800 pb-3">
+            <button class="tab-btn active" onclick="switchAdminTab('overview')">Overview</button>
+            <button class="tab-btn" onclick="switchAdminTab('users')">Users</button>
+            <button class="tab-btn" onclick="switchAdminTab('system')">System Settings</button>
+            <button class="tab-btn" onclick="switchAdminTab('theme')">Theme</button>
+            <button class="tab-btn" onclick="switchAdminTab('subscriptions')">Subscriptions</button>
+        </div>
+
+        <!-- OVERVIEW -->
+        <div id="admin-overview" class="admin-panel active">
+            <h2 class="text-xl font-bold text-white mb-4">System Overview</h2>
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>This dashboard shows a high-level summary of your TeleDrive instance. Use the tabs above to manage users, configure system settings, and control subscriptions.</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="stat-box"><div class="text-3xl font-bold text-white" id="stat-users">-</div><div class="text-xs text-slate-500 mt-1">Total Users</div></div>
+                <div class="stat-box"><div class="text-3xl font-bold text-green-400" id="stat-active">-</div><div class="text-xs text-slate-500 mt-1">Active Users</div></div>
+                <div class="stat-box"><div class="text-3xl font-bold text-indigo-400" id="stat-profiles">-</div><div class="text-xs text-slate-500 mt-1">Total Profiles</div></div>
+                <div class="stat-box"><div class="text-3xl font-bold text-white" id="stat-messages">-</div><div class="text-xs text-slate-500 mt-1">Total Messages</div></div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="card">
+                    <h3 class="text-sm font-semibold text-white mb-2">Quick Info</h3>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between"><span class="text-slate-400">Admin accounts</span><span class="text-white" id="stat-admins">-</span></div>
+                        <div class="flex justify-between"><span class="text-slate-400">Subscriptions</span><span id="stat-subs-status" class="text-yellow-400">-</span></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <h3 class="text-sm font-semibold text-white mb-2">Recent Activity</h3>
+                    <div id="admin-recent-activity" class="text-sm text-slate-400">Loading...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- USERS -->
+        <div id="admin-users" class="admin-panel">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-bold text-white">User Management</h2>
+                <button onclick="showCreateUserModal()" class="btn-primary text-sm py-2 px-4">+ Add User</button>
+            </div>
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>Manage all users in the system. Roles: <strong class="text-amber-300">Admin</strong> (full access), <strong class="text-blue-300">Editor</strong> (settings & scheduler), <strong class="text-purple-300">Tester</strong> (test connections & scrape), <strong class="text-slate-300">User</strong> (basic scraping). Each user has their own set of API credentials and scraping profiles.</p>
+                </div>
+            </div>
+            <!-- Pending Users -->
+            <div id="pending-users-section" class="mb-6">
+                <h3 class="text-sm font-semibold text-white mb-3">Pending Approval</h3>
+                <div id="pending-users-list" class="space-y-2">
+                    <div class="text-sm text-slate-500">Loading...</div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="text-slate-500 text-xs border-b border-slate-700">
+                            <th class="text-left py-2 px-3">User</th>
+                            <th class="text-left py-2 px-3">Role</th>
+                            <th class="text-left py-2 px-3">Plan</th>
+                            <th class="text-left py-2 px-3">Status</th>
+                            <th class="text-left py-2 px-3">Provider</th>
+                            <th class="text-left py-2 px-3">Last Login</th>
+                            <th class="text-left py-2 px-3">Actions</th>
+                        </tr></thead>
+                        <tbody id="users-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- SYSTEM SETTINGS -->
+        <div id="admin-system" class="admin-panel">
+            <h2 class="text-xl font-bold text-white mb-4">System Settings</h2>
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>These settings control system-wide behavior. Changes take effect immediately for all users.</p>
+                </div>
+            </div>
+            <div class="card">
+                <h3 class="text-sm font-semibold text-white mb-4">Registration & Authentication</h3>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div><span class="text-sm text-slate-200">Allow New Registrations</span><p class="text-xs text-slate-500">Users can create accounts on the login page</p></div>
+                        <input type="checkbox" id="sys-registration" class="toggle-switch" onchange="saveSystemSetting('registration_enabled', this.checked)">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div><span class="text-sm text-slate-200">Google OAuth Login</span><p class="text-xs text-slate-500">Allow users to sign in with Google accounts</p></div>
+                        <input type="checkbox" id="sys-google-oauth" class="toggle-switch" onchange="saveSystemSetting('google_oauth_enabled', this.checked)">
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <div><span class="text-sm text-white">Require Approval for New Users</span><p class="text-xs text-slate-500">New registrations must be approved by an admin</p></div>
+                        <input type="checkbox" id="require-approval-toggle" class="toggle-switch" onchange="saveSystemSetting('require_approval', this.checked)">
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <h3 class="text-sm font-semibold text-white mb-4">Google OAuth Configuration</h3>
+                <div class="guide-tip mb-3">
+                    <div class="flex items-start gap-2">
+                        <svg class="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <p>To enable Google login, create OAuth 2.0 credentials in the <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="text-indigo-400 underline">Google Cloud Console</a>. Set the redirect URI to your app's URL + <code class="text-indigo-300">/api/auth/google/callback</code>.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-3">
+                    <div><label class="block text-xs text-slate-500 mb-1">Client ID</label><input type="text" id="sys-google-client-id" class="input-field" placeholder="your-client-id.apps.googleusercontent.com"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Client Secret</label><input type="password" id="sys-google-client-secret" class="input-field" placeholder="GOCSPX-..."></div>
+                </div>
+                <button onclick="saveGoogleOAuthConfig()" class="btn-primary text-sm py-2 px-4 mt-3">Save OAuth Config</button>
+            </div>
+            <div class="card">
+                <h3 class="text-sm font-semibold text-white mb-4">Branding</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div><label class="block text-xs text-slate-500 mb-1">App Name</label><input type="text" id="sys-app-name" class="input-field" value="TeleDrive"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Tagline</label><input type="text" id="sys-app-tagline" class="input-field" value="Telegram Channel Intelligence Platform"></div>
+                </div>
+                <button onclick="saveBrandingConfig()" class="btn-primary text-sm py-2 px-4 mt-3">Save Branding</button>
+            </div>
+        </div>
+
+        <!-- THEME -->
+        <div id="admin-theme" class="admin-panel">
+            <h2 class="text-xl font-bold text-white mb-4">Site Theme &amp; Colors</h2>
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 mt-0.5 flex-shrink-0" style="color:var(--td-primary)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>Customize the look of the entire application. Changes apply to all pages (login, register, dashboard, admin) and all users. Use the live preview below to test before saving.</p>
+                </div>
+            </div>
+
+            <!-- Theme Presets -->
+            <div class="mb-6">
+                <h3 class="text-sm font-semibold text-white mb-3">Theme Presets</h3>
+                <div id="admin-theme-presets" class="grid grid-cols-2 md:grid-cols-4 gap-3"></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Color Pickers -->
+                <div>
+                    <div class="card">
+                        <h3 class="text-sm font-semibold text-white mb-4">Brand Colors</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-xs text-slate-500 mb-1">Primary</label><div class="flex items-center gap-3"><input type="color" id="th-primary" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-primary-hex"></span></div></div>
+                            <div><label class="block text-xs text-slate-500 mb-1">Primary Hover</label><div class="flex items-center gap-3"><input type="color" id="th-primary-hover" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-primary-hover-hex"></span></div></div>
+                            <div><label class="block text-xs text-slate-500 mb-1">Secondary</label><div class="flex items-center gap-3"><input type="color" id="th-secondary" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-secondary-hex"></span></div></div>
+                            <div><label class="block text-xs text-slate-500 mb-1">Success</label><div class="flex items-center gap-3"><input type="color" id="th-success" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-success-hex"></span></div></div>
+                            <div><label class="block text-xs text-slate-500 mb-1">Danger</label><div class="flex items-center gap-3"><input type="color" id="th-danger" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-danger-hex"></span></div></div>
+                            <div><label class="block text-xs text-slate-500 mb-1">Warning</label><div class="flex items-center gap-3"><input type="color" id="th-warning" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-warning-hex"></span></div></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-sm font-semibold text-white mb-4">Surface Colors</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-xs text-slate-500 mb-1">Page Background</label><div class="flex items-center gap-3"><input type="color" id="th-bg" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-bg-hex"></span></div></div>
+                            <div><label class="block text-xs text-slate-500 mb-1">Sidebar</label><div class="flex items-center gap-3"><input type="color" id="th-bg-sidebar" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-bg-sidebar-hex"></span></div></div>
+                            <div><label class="block text-xs text-slate-500 mb-1">Card Background</label><div class="flex items-center gap-3"><input type="color" id="th-bg-card" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-bg-card-hex"></span></div></div>
+                            <div><label class="block text-xs text-slate-500 mb-1">Input Background</label><div class="flex items-center gap-3"><input type="color" id="th-bg-input" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-bg-input-hex"></span></div></div>
+                            <div><label class="block text-xs text-slate-500 mb-1">Borders</label><div class="flex items-center gap-3"><input type="color" id="th-border" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-border-hex"></span></div></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3 class="text-sm font-semibold text-white mb-4">Text Colors</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="block text-xs text-slate-500 mb-1">Primary Text</label><div class="flex items-center gap-3"><input type="color" id="th-text" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-text-hex"></span></div></div>
+                            <div><label class="block text-xs text-slate-500 mb-1">Muted Text</label><div class="flex items-center gap-3"><input type="color" id="th-text-muted" class="color-swatch" onchange="previewTheme()"><span class="text-xs text-slate-400" id="th-text-muted-hex"></span></div></div>
+                        </div>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="saveSiteTheme()" class="btn-primary text-sm py-2.5 px-6">Save Theme</button>
+                        <button onclick="resetSiteTheme()" class="btn-secondary text-sm py-2.5 px-6">Reset to Defaults</button>
+                    </div>
+                </div>
+
+                <!-- Live Preview -->
+                <div>
+                    <div class="card">
+                        <h3 class="text-sm font-semibold text-white mb-4">Live Preview</h3>
+                        <div id="theme-preview-box" class="theme-preview">
+                            <div class="flex items-center gap-2 mb-3"><div class="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm" id="tp-brand-box">T</div><span class="font-semibold" id="tp-brand-text">TeleDrive</span></div>
+                            <div class="rounded-lg p-3 mb-2" id="tp-card"><div class="text-sm font-medium" id="tp-card-text">Card content</div><div class="text-xs mt-1" id="tp-card-muted">Muted description text</div></div>
+                            <div class="flex gap-2 mb-2"><div class="rounded-lg px-3 py-1.5 text-xs text-white font-medium" id="tp-btn-primary">Primary Button</div><div class="rounded-lg px-3 py-1.5 text-xs font-medium" id="tp-btn-secondary">Secondary</div></div>
+                            <div class="rounded-lg p-2 mt-2" id="tp-input"><span class="text-xs" id="tp-input-text">Input field</span></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <h3 class="text-sm font-semibold text-white">Allow User Custom Themes</h3>
+                                <p class="text-xs text-slate-500 mt-1">When enabled, you can grant individual users the ability to customize their own color scheme</p>
+                            </div>
+                            <input type="checkbox" id="th-allow-user" class="toggle-switch" onchange="saveAllowUserThemes(this.checked)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SUBSCRIPTIONS -->
+        <div id="admin-subscriptions" class="admin-panel">
+            <h2 class="text-xl font-bold text-white mb-4">Subscription Management</h2>
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>The subscription system is <strong class="text-indigo-300">fully built but disabled by default</strong>. When disabled, all users get unlimited access. Enable it below to enforce plan-based limits on profiles, processes, and daily messages.</p>
+                </div>
+            </div>
+
+            <!-- Master Toggle -->
+            <div class="card border-indigo-500/20">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-base font-semibold text-white">Enable Subscription System</h3>
+                        <p class="text-xs text-slate-400 mt-1">When OFF, all users get unlimited access. When ON, users are limited by their subscription plan.</p>
+                    </div>
+                    <input type="checkbox" id="sys-subs-enabled" class="toggle-switch" onchange="saveSystemSetting('subscriptions_enabled', this.checked)">
+                </div>
+            </div>
+
+            <!-- Plans Table -->
+            <div class="card">
+                <h3 class="text-sm font-semibold text-white mb-3">Subscription Plans</h3>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead><tr class="text-slate-500 text-xs border-b border-slate-700">
+                            <th class="text-left py-2 px-3">Plan</th>
+                            <th class="text-left py-2 px-3">Price</th>
+                            <th class="text-left py-2 px-3">Profiles</th>
+                            <th class="text-left py-2 px-3">Processes</th>
+                            <th class="text-left py-2 px-3">Daily Msgs</th>
+                            <th class="text-left py-2 px-3">Excel</th>
+                            <th class="text-left py-2 px-3">Sheets</th>
+                            <th class="text-left py-2 px-3">Schedule</th>
+                        </tr></thead>
+                        <tbody id="plans-table"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create User Modal -->
+    <div id="create-user-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] rounded-xl p-6 w-full max-w-md shadow-2xl border border-slate-700">
+            <h3 class="text-lg font-semibold mb-4">Create New User</h3>
+            <div id="create-user-error" class="hidden bg-red-500/10 border border-red-500/20 rounded-lg p-3 mb-3">
+                <p class="text-red-400 text-sm" id="create-user-error-text"></p>
+            </div>
+            <div class="space-y-3">
+                <div><label class="block text-xs text-slate-500 mb-1">Full Name</label><input type="text" id="new-user-name" class="input-field" placeholder="John Doe"></div>
+                <div><label class="block text-xs text-slate-500 mb-1">Email</label><input type="email" id="new-user-email" class="input-field" placeholder="user@example.com"></div>
+                <div><label class="block text-xs text-slate-500 mb-1">Password</label><input type="password" id="new-user-password" class="input-field" placeholder="Min. 6 characters"></div>
+                <div><label class="block text-xs text-slate-500 mb-1">Role</label><select id="new-user-role" class="input-field"><option value="user">Normal User</option><option value="tester">Tester</option><option value="editor">Settings Editor</option><option value="admin">Administrator</option></select></div>
+            </div>
+            <div class="flex gap-3 mt-5">
+                <button onclick="createUser()" class="flex-1 btn-primary py-2">Create</button>
+                <button onclick="closeCreateUserModal()" class="flex-1 btn-secondary py-2">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // Admin Tab Switching
+    function switchAdminTab(tab) {
+        document.querySelectorAll('.admin-panel').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('admin-' + tab).classList.add('active');
+        event.target.classList.add('active');
+        if (tab === 'overview') loadAdminOverview();
+        if (tab === 'users') { loadUsers(); loadPendingUsers(); }
+        if (tab === 'system') loadSystemSettings();
+        if (tab === 'theme') { loadSiteTheme(); loadAdminThemePresets(); }
+        if (tab === 'subscriptions') loadSubscriptions();
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', () => { loadAdminOverview(); });
+
+    // OVERVIEW
+    async function loadAdminOverview() {
+        try {
+            const res = await fetch('/api/admin/stats');
+            const data = await res.json();
+            document.getElementById('stat-users').textContent = data.total_users;
+            document.getElementById('stat-active').textContent = data.active_users;
+            document.getElementById('stat-profiles').textContent = data.total_profiles;
+            document.getElementById('stat-messages').textContent = data.total_messages.toLocaleString();
+            document.getElementById('stat-admins').textContent = data.admin_count;
+            document.getElementById('stat-subs-status').textContent = data.subs_enabled ? 'Enabled' : 'Disabled';
+            document.getElementById('stat-subs-status').className = data.subs_enabled ? 'text-green-400' : 'text-yellow-400';
+        } catch (e) {}
+
+        // Load recent audit
+        try {
+            const res = await fetch('/api/audit?limit=5');
+            const logs = await res.json();
+            const el = document.getElementById('admin-recent-activity');
+            if (logs.length === 0) { el.innerHTML = '<span class="text-slate-500">No activity yet</span>'; return; }
+            el.innerHTML = logs.map(l => '<div class="flex justify-between py-1 border-b border-slate-800 last:border-0"><span class="text-slate-300">' + l.action.replace(/_/g, ' ') + '</span><span class="text-slate-600 text-xs">' + l.timestamp + '</span></div>').join('');
+        } catch (e) {}
+    }
+
+    // USERS
+    const ROLE_BADGES = {
+        admin: '<span class="badge bg-amber-600/20 text-amber-300">Admin</span>',
+        editor: '<span class="badge bg-blue-600/20 text-blue-300">Editor</span>',
+        tester: '<span class="badge bg-purple-600/20 text-purple-300">Tester</span>',
+        user: '<span class="badge bg-slate-600/60 text-slate-300">User</span>'
+    };
+    const ROLE_OPTIONS = ['user', 'tester', 'editor', 'admin'];
+    const ROLE_LABELS = { user: 'User', tester: 'Tester', editor: 'Editor', admin: 'Admin' };
+
+    async function loadUsers() {
+        const res = await fetch('/api/admin/users');
+        const users = await res.json();
+        const tbody = document.getElementById('users-table');
+        tbody.innerHTML = users.map(u => {
+            const roleBadge = ROLE_BADGES[u.role] || ROLE_BADGES.user;
+            const statusBadge = u.status === 'pending'
+                ? '<span class="badge bg-yellow-600/20 text-yellow-400">Pending</span>'
+                : u.status === 'rejected'
+                ? '<span class="badge bg-red-600/20 text-red-400">Rejected</span>'
+                : u.is_active
+                ? '<span class="badge bg-green-600/20 text-green-400">Active</span>'
+                : '<span class="badge bg-red-600/20 text-red-400">Disabled</span>';
+            const providerBadge = u.auth_provider === 'google'
+                ? '<span class="text-xs text-blue-400">Google</span>'
+                : '<span class="text-xs text-slate-500">Email</span>';
+            const roleOptions = ROLE_OPTIONS.map(r =>
+                '<option value="' + r + '"' + (u.role === r ? ' selected' : '') + '>' + ROLE_LABELS[r] + '</option>'
+            ).join('');
+            return '<tr class="hover:bg-slate-800/50 border-b border-slate-800/50">' +
+                '<td class="py-3 px-3"><div class="font-medium text-white">' + u.name + '</div><div class="text-xs text-slate-500">' + u.email + '</div></td>' +
+                '<td class="py-3 px-3">' + roleBadge + '</td>' +
+                '<td class="py-3 px-3"><span class="text-xs text-slate-400">' + (u.subscription_plan || 'free') + '</span></td>' +
+                '<td class="py-3 px-3">' + statusBadge + '</td>' +
+                '<td class="py-3 px-3">' + providerBadge + '</td>' +
+                '<td class="py-3 px-3 text-xs text-slate-500">' + (u.last_login_at || 'Never') + '</td>' +
+                '<td class="py-3 px-3"><div class="flex gap-2">' +
+                '<select onchange="updateUserRole(' + u.id + ', this.value)" class="input-field text-xs py-1 px-2 w-auto">' + roleOptions + '</select>' +
+                '<button onclick="toggleUserActive(' + u.id + ',' + (u.is_active ? 'false' : 'true') + ')" class="' + (u.is_active ? 'text-yellow-400' : 'text-green-400') + ' text-xs hover:underline">' + (u.is_active ? 'Disable' : 'Enable') + '</button>' +
+                '<button onclick="deleteUser(' + u.id + ',\'' + u.email.replace("'", "\\'") + '\')" class="text-red-400 text-xs hover:underline">Delete</button>' +
+                '<label class="flex items-center gap-1 cursor-pointer" title="Allow custom theme"><input type="checkbox" onchange="toggleUserTheme(' + u.id + ', this.checked)" class="w-3.5 h-3.5 rounded accent-indigo-500"' + (u.theme_enabled ? ' checked' : '') + '><span class="text-xs text-slate-500">Theme</span></label>' +
+                '</div></td></tr>';
+        }).join('');
+    }
+
+    async function updateUserRole(uid, role) {
+        await fetch('/api/admin/users/' + uid, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({role}) });
+        loadUsers();
+    }
+    async function toggleUserActive(uid, active) {
+        await fetch('/api/admin/users/' + uid, { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({is_active: active ? 1 : 0}) });
+        loadUsers();
+    }
+    async function deleteUser(uid, email) {
+        if (!confirm('Delete user ' + email + '? This cannot be undone.')) return;
+        const res = await fetch('/api/admin/users/' + uid, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.error) alert(data.error);
+        else loadUsers();
+    }
+
+    // Create User
+    function showCreateUserModal() { document.getElementById('create-user-modal').classList.remove('hidden'); document.getElementById('create-user-error').classList.add('hidden'); }
+    function closeCreateUserModal() { document.getElementById('create-user-modal').classList.add('hidden'); }
+    async function createUser() {
+        const errDiv = document.getElementById('create-user-error');
+        const errText = document.getElementById('create-user-error-text');
+        errDiv.classList.add('hidden');
+        const data = {
+            name: document.getElementById('new-user-name').value.trim(),
+            email: document.getElementById('new-user-email').value.trim(),
+            password: document.getElementById('new-user-password').value,
+            role: document.getElementById('new-user-role').value
+        };
+        if (!data.name || !data.email || !data.password) { errText.textContent = 'All fields are required'; errDiv.classList.remove('hidden'); return; }
+        const res = await fetch('/api/admin/users', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+        const result = await res.json();
+        if (result.success) { closeCreateUserModal(); loadUsers(); }
+        else { errText.textContent = result.error || 'Failed'; errDiv.classList.remove('hidden'); }
+    }
+
+    // SYSTEM SETTINGS
+    async function loadSystemSettings() {
+        const res = await fetch('/api/admin/settings');
+        const data = await res.json();
+        const s = data.settings || {};
+        document.getElementById('sys-registration').checked = s.registration_enabled === 'true';
+        document.getElementById('sys-google-oauth').checked = s.google_oauth_enabled === 'true';
+        document.getElementById('sys-google-client-id').value = s.google_oauth_client_id || '';
+        document.getElementById('sys-google-client-secret').value = s.google_oauth_client_secret || '';
+        document.getElementById('sys-app-name').value = s.app_name || 'TeleDrive';
+        document.getElementById('sys-app-tagline').value = s.app_tagline || '';
+        document.getElementById('require-approval-toggle').checked = s.require_approval === 'true';
+    }
+
+    async function saveSystemSetting(key, value) {
+        const data = {};
+        data[key] = value ? 'true' : 'false';
+        await fetch('/api/admin/settings', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    }
+
+    async function saveGoogleOAuthConfig() {
+        await fetch('/api/admin/settings', {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                google_oauth_client_id: document.getElementById('sys-google-client-id').value,
+                google_oauth_client_secret: document.getElementById('sys-google-client-secret').value
+            })
+        });
+        alert('OAuth config saved!');
+    }
+
+    async function saveBrandingConfig() {
+        await fetch('/api/admin/settings', {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({
+                app_name: document.getElementById('sys-app-name').value,
+                app_tagline: document.getElementById('sys-app-tagline').value
+            })
+        });
+        alert('Branding saved!');
+    }
+
+    // SUBSCRIPTIONS
+    async function loadSubscriptions() {
+        const res = await fetch('/api/admin/settings');
+        const data = await res.json();
+        document.getElementById('sys-subs-enabled').checked = (data.settings || {}).subscriptions_enabled === 'true';
+        const plans = data.plans || [];
+        const tbody = document.getElementById('plans-table');
+        tbody.innerHTML = plans.map(p => {
+            const unlimited = v => v === -1 ? '<span class="text-green-400">Unlimited</span>' : v.toLocaleString();
+            const check = v => v ? '<span class="text-green-400">Yes</span>' : '<span class="text-slate-500">No</span>';
+            return '<tr class="border-b border-slate-800/50">' +
+                '<td class="py-3 px-3"><div class="font-medium text-white">' + p.display_name + '</div><div class="text-xs text-slate-500">' + (p.description || '') + '</div></td>' +
+                '<td class="py-3 px-3 text-white font-medium">$' + p.price.toFixed(2) + '<span class="text-slate-500 text-xs">/' + p.interval + '</span></td>' +
+                '<td class="py-3 px-3">' + unlimited(p.max_profiles) + '</td>' +
+                '<td class="py-3 px-3">' + unlimited(p.max_processes) + '</td>' +
+                '<td class="py-3 px-3">' + unlimited(p.max_messages_per_day) + '</td>' +
+                '<td class="py-3 px-3">' + check(p.can_export_excel) + '</td>' +
+                '<td class="py-3 px-3">' + check(p.can_push_sheets) + '</td>' +
+                '<td class="py-3 px-3">' + check(p.can_schedule) + '</td>' +
+                '</tr>';
+        }).join('');
+    }
+
+    // ═══════════════════════════════════════
+    // THEME MANAGEMENT
+    // ═══════════════════════════════════════
+    const THEME_KEYS = ['primary','primary_hover','secondary','bg','bg_sidebar','bg_card','bg_input','border','text','text_muted','success','danger','warning'];
+    function thId(key) { return 'th-' + key.replace(/_/g, '-'); }
+    function hexToRgb(hex) { const h = hex.replace('#',''); return `${parseInt(h.substring(0,2),16)}, ${parseInt(h.substring(2,4),16)}, ${parseInt(h.substring(4,6),16)}`; }
+
+    async function loadSiteTheme() {
+        const res = await fetch('/api/admin/theme');
+        const data = await res.json();
+        const theme = data.theme || {};
+        THEME_KEYS.forEach(key => {
+            const el = document.getElementById(thId(key));
+            if (el && theme[key]) { el.value = theme[key]; }
+            const hex = document.getElementById(thId(key) + '-hex');
+            if (hex && theme[key]) hex.textContent = theme[key];
+        });
+        document.getElementById('th-allow-user').checked = data.allow_user_themes;
+        updateThemePreview();
+    }
+
+    function previewTheme() {
+        THEME_KEYS.forEach(key => {
+            const el = document.getElementById(thId(key));
+            if (!el) return;
+            const hex = el.value;
+            const label = document.getElementById(thId(key) + '-hex');
+            if (label) label.textContent = hex;
+            document.documentElement.style.setProperty('--td-' + key.replace(/_/g, '-'), hex);
+            if (key === 'primary') document.documentElement.style.setProperty('--td-primary-rgb', hexToRgb(hex));
+            if (key === 'secondary') document.documentElement.style.setProperty('--td-secondary-rgb', hexToRgb(hex));
+        });
+        updateThemePreview();
+    }
+
+    function updateThemePreview() {
+        const g = id => { const e = document.getElementById(thId(id)); return e ? e.value : ''; };
+        const box = document.getElementById('theme-preview-box');
+        if (!box) return;
+        box.style.background = g('bg');
+        box.style.borderColor = g('border');
+        const brand = document.getElementById('tp-brand-box');
+        brand.style.background = `linear-gradient(135deg, ${g('primary')}, ${g('secondary')})`;
+        document.getElementById('tp-brand-text').style.color = g('text');
+        const card = document.getElementById('tp-card');
+        card.style.background = g('bg-card'); card.style.border = `1px solid ${g('border')}`;
+        document.getElementById('tp-card-text').style.color = g('text');
+        document.getElementById('tp-card-muted').style.color = g('text-muted');
+        document.getElementById('tp-btn-primary').style.background = `linear-gradient(135deg, ${g('primary')}, ${g('secondary')})`;
+        const sec = document.getElementById('tp-btn-secondary');
+        sec.style.background = g('border'); sec.style.color = g('text');
+        const inp = document.getElementById('tp-input');
+        inp.style.background = g('bg-input'); inp.style.border = `1px solid ${g('border')}`;
+        document.getElementById('tp-input-text').style.color = g('text-muted');
+    }
+
+    async function saveSiteTheme() {
+        const theme = {};
+        THEME_KEYS.forEach(key => {
+            const el = document.getElementById(thId(key));
+            if (el) theme[key] = el.value;
+        });
+        await fetch('/api/admin/theme', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify(theme) });
+        alert('Site theme saved! All users will see the new colors on reload.');
+    }
+
+    async function resetSiteTheme() {
+        if (!confirm('Reset the site theme to factory defaults?')) return;
+        await fetch('/api/admin/theme/reset', { method: 'POST' });
+        loadSiteTheme();
+        alert('Theme reset to defaults. Reload the page to see changes.');
+    }
+
+    async function saveAllowUserThemes(enabled) {
+        await fetch('/api/admin/theme', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ allow_user_themes: enabled }) });
+    }
+
+    async function toggleUserTheme(uid, enabled) {
+        await fetch('/api/admin/users/' + uid + '/theme', { method: 'PUT', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ enabled }) });
+    }
+
+    // Load pending users
+    function loadPendingUsers() {
+        fetch('/api/admin/pending-users').then(r => r.json()).then(users => {
+            const container = document.getElementById('pending-users-list');
+            if (!users.length) { container.innerHTML = '<div class="text-sm text-slate-500">No pending users</div>'; return; }
+            container.innerHTML = users.map(u => `
+                <div class="flex items-center justify-between p-3 rounded-lg" style="background:var(--td-bg-input);border:1px solid var(--td-border)">
+                    <div>
+                        <span class="text-sm text-white font-medium">${u.name}</span>
+                        <span class="text-xs text-slate-400 ml-2">${u.email}</span>
+                        <span class="text-xs text-slate-500 ml-2">Registered: ${u.created_at}</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="approveUser(${u.id})" class="bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-1 rounded-lg cursor-pointer">Approve</button>
+                        <button onclick="rejectUser(${u.id})" class="bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1 rounded-lg cursor-pointer">Reject</button>
+                    </div>
+                </div>
+            `).join('');
+        });
+    }
+
+    function approveUser(uid) {
+        fetch(`/api/admin/users/${uid}/approve`, {method:'POST'}).then(r => r.json()).then(r => {
+            if(r.success) { loadPendingUsers(); loadUsers(); }
+        });
+    }
+
+    function rejectUser(uid) {
+        if(!confirm('Reject this user?')) return;
+        fetch(`/api/admin/users/${uid}/reject`, {method:'POST'}).then(r => r.json()).then(r => {
+            if(r.success) { loadPendingUsers(); loadUsers(); }
+        });
+    }
+
+    // Load admin theme presets
+    function loadAdminThemePresets() {
+        fetch('/api/themes/presets').then(r => r.json()).then(presets => {
+            const container = document.getElementById('admin-theme-presets');
+            container.innerHTML = Object.entries(presets).map(([key, preset]) => {
+                const colors = Object.values(preset.theme).slice(0, 5);
+                const swatches = colors.map(c => `<div style="width:20px;height:20px;border-radius:4px;background:${c}"></div>`).join('');
+                return `
+                    <div class="p-3 rounded-lg cursor-pointer hover:opacity-90 transition" style="background:var(--td-bg-input);border:1px solid var(--td-border)" onclick="applyAdminPreset('${key}')">
+                        <div class="text-sm text-white font-medium mb-1">${preset.display_name}</div>
+                        <div class="text-xs text-slate-400 mb-2">${preset.description}</div>
+                        <div class="flex gap-1">${swatches}</div>
+                    </div>
+                `;
+            }).join('');
+        });
+    }
+
+    function applyAdminPreset(name) {
+        if(!confirm('Apply this preset theme?')) return;
+        fetch('/api/admin/theme', {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({preset: name})})
+            .then(r => r.json()).then(r => { if(r.success) location.reload(); });
+    }
+
+    // Logout
+    async function handleLogout() {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        window.location.href = '/login';
+    }
+    </script>
+</body>
+</html>

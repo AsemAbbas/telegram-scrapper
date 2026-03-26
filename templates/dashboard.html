@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeleDrive — Dashboard</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { {{ theme_css | safe }} }
+        * { font-family: 'Inter', sans-serif; }
+        body { background: var(--td-bg); }
+        .brand-gradient { background: linear-gradient(135deg, var(--td-primary), var(--td-secondary)); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .sidebar { background: var(--td-bg-sidebar); border-right: 1px solid rgba(var(--td-primary-rgb), 0.1); }
+        .sidebar-btn { transition: all 0.15s; border-left: 3px solid transparent; }
+        .sidebar-btn:hover { background: rgba(var(--td-primary-rgb), 0.08); }
+        .sidebar-btn.active { background: rgba(var(--td-primary-rgb), 0.12); border-left-color: var(--td-primary); color: var(--td-primary); }
+        .card { background: var(--td-bg-card); border: 1px solid rgba(var(--td-primary-rgb), 0.08); border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+        .badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+        .btn-primary { background: linear-gradient(135deg, var(--td-primary), var(--td-secondary)); color: white; border-radius: 10px; font-weight: 500; cursor: pointer; transition: all 0.2s; border: none; }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-secondary { background: var(--td-border); color: var(--td-text); border-radius: 10px; font-weight: 500; cursor: pointer; transition: all 0.15s; border: none; }
+        .btn-secondary:hover { opacity: 0.85; }
+        .btn-danger { background: #991b1b; color: #fca5a5; border-radius: 10px; font-weight: 500; cursor: pointer; border: none; }
+        .btn-danger:hover { background: #b91c1c; }
+        .input-field { background: var(--td-bg-input); color: var(--td-text); border: 1px solid var(--td-border); border-radius: 10px; padding: 0.6rem 0.85rem; width: 100%; font-size: 0.875rem; }
+        .input-field:focus { border-color: var(--td-primary); outline: none; box-shadow: 0 0 0 3px rgba(var(--td-primary-rgb), 0.1); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+        .log-container { max-height: 300px; overflow-y: auto; }
+        .log-entry { padding: 2px 0; font-size: 0.8rem; }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .stat-box { background: var(--td-bg-input); border: 1px solid var(--td-bg-card); border-radius: 8px; padding: 0.5rem; text-align: center; }
+        .guide-tip { background: rgba(var(--td-primary-rgb), 0.05); border: 1px solid rgba(var(--td-primary-rgb), 0.1); border-radius: 8px; padding: 0.6rem 0.75rem; }
+        .guide-tip p { color: var(--td-text-muted); font-size: 0.75rem; line-height: 1.5; }
+        .guide-tip .guide-icon { color: var(--td-primary); flex-shrink: 0; margin-top: 2px; }
+        .user-menu { position: relative; }
+        .user-dropdown { position: absolute; bottom: 100%; left: 0; right: 0; background: var(--td-bg-card); border: 1px solid var(--td-border); border-radius: 10px; margin-bottom: 4px; display: none; overflow: hidden; z-index: 50; }
+        .user-dropdown.show { display: block; }
+        .user-dropdown a, .user-dropdown button { display: block; width: 100%; text-align: left; padding: 0.6rem 0.85rem; color: var(--td-text-muted); font-size: 0.8rem; transition: background 0.15s; background: none; border: none; cursor: pointer; }
+        .user-dropdown a:hover, .user-dropdown button:hover { background: rgba(var(--td-primary-rgb), 0.1); }
+        .color-swatch { width: 36px; height: 36px; border-radius: 8px; border: 2px solid var(--td-border); cursor: pointer; padding: 0; }
+        .color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+        .color-swatch::-webkit-color-swatch { border: none; border-radius: 6px; }
+    </style>
+</head>
+<body class="text-slate-200 min-h-screen flex" data-role="{{ user.role }}">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar w-60 min-h-screen flex flex-col fixed left-0 top-0 bottom-0 z-40">
+        <!-- Brand -->
+        <div class="px-5 py-5 flex items-center gap-3 border-b border-slate-800">
+            <img src="/static/favicon.svg" alt="TeleDrive" class="w-9 h-9 rounded-lg">
+            <div>
+                <h1 class="text-lg font-bold brand-gradient">TeleDrive</h1>
+                <p class="text-[10px] text-slate-500 -mt-0.5">Channel Intelligence</p>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 py-3 px-2 space-y-0.5 overflow-y-auto">
+            <button data-tab="dashboard" onclick="switchTab('dashboard')" class="sidebar-btn active w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-300">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+                Dashboard
+            </button>
+            <button data-tab="manager" onclick="switchTab('manager')" class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/></svg>
+                Manager
+            </button>
+            <button data-tab="profiles" onclick="switchTab('profiles')" class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                Profiles
+            </button>
+            <button data-tab="channels" onclick="switchTab('channels')" class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
+                Channels
+            </button>
+            <button data-tab="scheduler" onclick="switchTab('scheduler')" class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                Scheduler
+            </button>
+            <button data-tab="activity" onclick="switchTab('activity')" class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                Activity
+            </button>
+            <button data-tab="settings" onclick="switchTab('settings')" class="sidebar-btn w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-slate-400">
+                <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                Settings
+            </button>
+        </nav>
+
+        <!-- Bottom: App toggle + User -->
+        <div class="border-t border-slate-800 px-3 py-2">
+            <div class="flex items-center justify-between mb-2 px-1">
+                <span class="text-xs text-slate-500">App Status</span>
+                <span id="app-toggle-btn" onclick="toggleApp()" class="badge bg-green-600/20 text-green-400 cursor-pointer text-xs">Enabled</span>
+            </div>
+            <div id="local-stats-sidebar" class="text-[10px] text-slate-600 px-1 mb-2"></div>
+        </div>
+
+        <!-- User Menu -->
+        <div class="user-menu border-t border-slate-800 px-3 py-3">
+            <div class="user-dropdown" id="user-dropdown">
+                {% if user.role == 'admin' %}
+                <a href="/admin">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        Admin Panel
+                    </span>
+                </a>
+                {% endif %}
+                <button onclick="handleLogout()">
+                    <span class="flex items-center gap-2 text-red-400">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                        Sign Out
+                    </span>
+                </button>
+            </div>
+            <button onclick="toggleUserMenu()" class="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-slate-800/50 transition">
+                <div class="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/30 flex items-center justify-center text-sm font-semibold text-indigo-300">
+                    {{ user.name[0]|upper }}
+                </div>
+                <div class="flex-1 text-left min-w-0">
+                    <p class="text-sm font-medium text-slate-200 truncate">{{ user.name }}</p>
+                    <p class="text-[10px] text-slate-500 truncate">{{ user.email }}</p>
+                </div>
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="ml-60 flex-1 p-6 max-w-6xl">
+
+        <!-- TAB: DASHBOARD -->
+        <div id="tab-dashboard" class="tab-panel active">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Dashboard</h2>
+                    <p class="text-sm text-slate-400">Quick scrape from configured channels</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="status-badge" class="badge bg-slate-700 text-slate-300 text-sm px-3 py-1">Ready</span>
+                </div>
+            </div>
+
+            <!-- Guide -->
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 guide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>This page lets you run <strong class="text-indigo-300">quick scrapes</strong> from your configured channels. For advanced control with date ranges, daily limits, and scheduling, use the <strong class="text-indigo-300">Profiles</strong> tab instead.</p>
+                </div>
+            </div>
+
+            <!-- Dashboard Stats -->
+            <div id="dashboard-stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div class="stat-box"><div class="text-xs text-slate-500">Total Messages</div><div class="text-lg font-bold text-white">-</div></div>
+                <div class="stat-box"><div class="text-xs text-slate-500">Success Rate</div><div class="text-lg font-bold text-white">-</div></div>
+                <div class="stat-box"><div class="text-xs text-slate-500">Today</div><div class="text-lg font-bold text-white">-</div></div>
+                <div class="stat-box"><div class="text-xs text-slate-500">Active Schedules</div><div class="text-lg font-bold text-white">-</div></div>
+            </div>
+
+            <!-- Status Bar -->
+            <div class="card">
+                <div class="flex items-center justify-between mb-3">
+                    <span id="current-task" class="text-sm text-slate-400">Waiting to start...</span>
+                    <span id="progress-percent" class="text-xs text-slate-500">0%</span>
+                </div>
+                <div class="w-full bg-slate-700 rounded-full h-2"><div id="progress-bar" class="bg-indigo-500 h-2 rounded-full transition-all duration-500" style="width:0%"></div></div>
+            </div>
+
+            <!-- Export & Scrape -->
+            <div class="card">
+                <h3 class="text-sm font-semibold text-white mb-3">Export Options</h3>
+                <div class="flex flex-wrap gap-4 mb-3">
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="push-sheets" checked class="w-4 h-4 rounded bg-slate-700 border-slate-600 accent-indigo-500"><span class="text-sm text-slate-300">Push to Google Sheets</span></label>
+                    <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="export-local" onchange="toggleLocalExportOptions()" class="w-4 h-4 rounded bg-slate-700 border-slate-600 accent-indigo-500"><span class="text-sm text-slate-300">Save Local File</span></label>
+                </div>
+                <div id="local-export-options" class="hidden space-y-3 mb-3">
+                    <div class="flex flex-wrap gap-3">
+                        <select id="local-format" onchange="loadExportFiles()" class="input-field w-auto"><option value="csv">CSV</option><option value="json">JSON</option><option value="xlsx" selected>Excel</option></select>
+                        <select id="local-mode" onchange="toggleFilenameInput()" class="input-field w-auto"><option value="new">New File</option><option value="append">Append to Existing</option></select>
+                        <select id="save-location" onchange="toggleCustomPath()" class="input-field w-auto"><option value="default">Project Folder</option><option value="desktop">Desktop</option><option value="documents">Documents</option><option value="custom">Custom Path</option></select>
+                    </div>
+                    <div id="custom-path-section" class="hidden"><input type="text" id="custom-path" placeholder="C:\path\to\folder" class="input-field"></div>
+                    <div id="existing-files-section" class="hidden"><select id="existing-file" class="input-field"><option value="">No existing files</option></select></div>
+                    <div id="custom-filename-section"><input type="text" id="custom-filename" placeholder="Leave blank for auto-name" class="input-field"></div>
+                </div>
+                <div class="flex gap-3">
+                    <button id="start-btn" onclick="startScrape()" class="btn-primary px-6 py-2.5 text-sm flex-1">Start Scraping</button>
+                    <button id="kill-btn" onclick="killScrape()" class="btn-danger px-4 py-2.5 text-sm hidden">Stop</button>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div id="results-card" class="card hidden">
+                <h3 class="text-sm font-semibold text-white mb-3">Results</h3>
+                <div id="results-list" class="space-y-2"></div>
+            </div>
+
+            <!-- Log -->
+            <div class="card">
+                <div class="flex items-center justify-between mb-2">
+                    <h3 class="text-sm font-semibold text-white">Live Log</h3>
+                    <button onclick="clearLogs()" class="text-slate-500 hover:text-slate-300 text-xs">Clear</button>
+                </div>
+                <div id="log-container" class="log-container bg-[#0b1120] rounded-lg p-3 font-mono text-sm space-y-0.5"><div class="text-slate-500">Waiting for activity...</div></div>
+            </div>
+        </div>
+
+        <!-- TAB: MANAGER -->
+        <div id="tab-manager" class="tab-panel">
+            <div class="mb-6"><h2 class="text-2xl font-bold text-white">Manager</h2><p class="text-sm text-slate-400">Bird's-eye view of all profiles, processes, and jobs</p></div>
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 guide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>The Manager shows a <strong class="text-indigo-300">summary of all your scraping operations</strong>. Use it to monitor active jobs, review status counts, and check schedule timing at a glance.</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                <div class="stat-box"><div class="text-2xl font-bold text-white" id="mgr-profile-count">0</div><div class="text-xs text-slate-500">Profiles</div></div>
+                <div class="stat-box"><div class="text-2xl font-bold text-white" id="mgr-process-count">0</div><div class="text-xs text-slate-500">Processes</div></div>
+                <div class="stat-box"><div class="text-2xl font-bold text-indigo-400" id="mgr-cron-count">0</div><div class="text-xs text-slate-500">Scheduled</div></div>
+                <div class="stat-box"><div class="text-2xl font-bold text-white" id="mgr-msg-count">0</div><div class="text-xs text-slate-500">Messages</div></div>
+            </div>
+            <div class="card"><h3 class="text-sm font-semibold text-white mb-2">Status</h3><div id="mgr-status-bar" class="w-full h-3 bg-slate-700 rounded-full overflow-hidden flex"></div><div id="mgr-status-legend" class="flex flex-wrap gap-3 mt-2 text-xs text-slate-400"></div></div>
+            <div class="card"><h3 class="text-sm font-semibold text-white mb-2">Global Scheduler</h3><div id="mgr-global-sched" class="text-sm"></div></div>
+            <div class="card">
+                <h3 class="text-sm font-semibold text-white mb-2">Profiles</h3>
+                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-slate-500 text-xs border-b border-slate-700"><th class="text-left py-2 px-3">Name</th><th class="text-left py-2 px-3">Proc</th><th class="text-left py-2 px-3">Messages</th><th class="text-left py-2 px-3">Running</th><th class="text-left py-2 px-3">Status</th><th class="text-left py-2 px-3">Created</th></tr></thead><tbody id="mgr-profiles-table"></tbody></table></div>
+                <div id="mgr-profiles-empty" class="hidden text-slate-500 text-sm text-center py-3">No profiles</div>
+            </div>
+            <div class="card">
+                <h3 class="text-sm font-semibold text-white mb-2">All Jobs</h3>
+                <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-slate-500 text-xs border-b border-slate-700"><th class="text-left py-2 px-3">Process</th><th class="text-left py-2 px-3">Profile</th><th class="text-left py-2 px-3">Type</th><th class="text-left py-2 px-3">Status</th><th class="text-left py-2 px-3">Schedule</th><th class="text-left py-2 px-3">Msgs</th><th class="text-left py-2 px-3">Last Run</th><th class="text-left py-2 px-3">Next</th></tr></thead><tbody id="mgr-jobs-table"></tbody></table></div>
+                <div id="mgr-jobs-empty" class="hidden text-slate-500 text-sm text-center py-3">No jobs</div>
+            </div>
+        </div>
+
+        <!-- TAB: PROFILES -->
+        <div id="tab-profiles" class="tab-panel">
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-2xl font-bold text-white">Profiles</h2><p class="text-sm text-slate-400">Manage scraping profiles and their processes</p></div>
+                <button onclick="showCreateProfileModal()" class="btn-primary text-sm py-2 px-4">+ New Profile</button>
+            </div>
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 guide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>Each <strong class="text-indigo-300">Profile</strong> is linked to one Telegram channel. Inside a profile, you create <strong class="text-indigo-300">Processes</strong> (scrape jobs) that can run with date ranges, daily message limits, and automatic scheduling. Click a profile to expand it and see its processes.</p>
+                </div>
+            </div>
+            <div id="profiles-list" class="space-y-3"></div>
+        </div>
+
+        <!-- TAB: CHANNELS -->
+        <div id="tab-channels" class="tab-panel">
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-2xl font-bold text-white">Quick Channels</h2><p class="text-sm text-slate-400">One-off channel list for quick scrapes from Dashboard</p></div>
+                <button onclick="addChannel()" class="btn-primary text-sm py-2 px-4">+ Add Channel</button>
+            </div>
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 guide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>These channels are used by the <strong class="text-indigo-300">Dashboard quick scrape</strong>. Enter the channel's username without the @ symbol. Use "Last X hours" for recent messages, or pick a date range for historical data. For more control, use <strong class="text-indigo-300">Profiles</strong> instead.</p>
+                </div>
+            </div>
+            <!-- Managed Channels -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <div><h3 class="text-sm font-semibold text-white">Managed Channels</h3><p class="text-xs text-slate-400">Create channels once, reuse across profiles</p></div>
+                    <button onclick="document.getElementById('add-channel-form').classList.toggle('hidden')" class="btn-primary px-3 py-1.5 text-xs">+ Add Channel</button>
+                </div>
+                <div id="add-channel-form" class="card hidden mb-3">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <input type="text" id="new-channel-username" placeholder="@channel_username" class="input-field">
+                        <input type="text" id="new-channel-title" placeholder="Display title (optional)" class="input-field">
+                        <button onclick="createManagedChannel()" class="btn-primary py-2 text-sm">Create Channel</button>
+                    </div>
+                </div>
+                <div id="managed-channels-list" class="space-y-2 mb-6">
+                    <div class="text-sm text-slate-500">Loading channels...</div>
+                </div>
+            </div>
+            <hr class="border-slate-700 mb-4">
+            <div id="channels-list" class="space-y-3">
+                {% for ch in channels %}
+                <div class="channel-item card">
+                    <div class="flex items-center gap-3 mb-3">
+                        <div class="flex-1"><input type="text" value="{{ ch.name }}" placeholder="Channel username" class="channel-name input-field text-lg font-medium bg-transparent border-none"></div>
+                        <button onclick="removeChannel(this)" class="text-red-400 hover:text-red-300 p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+                    </div>
+                    <div class="flex items-center gap-4 mb-3">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="mode-{{ loop.index }}" value="hours" {{ 'checked' if not ch.use_date_range else '' }} onchange="toggleChannelMode(this)" class="w-4 h-4"><span class="text-sm text-slate-400">Last X hours</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="mode-{{ loop.index }}" value="daterange" {{ 'checked' if ch.use_date_range else '' }} onchange="toggleChannelMode(this)" class="w-4 h-4"><span class="text-sm text-slate-400">Date range</span></label>
+                    </div>
+                    <div class="channel-hours-mode flex items-center gap-2 {{ 'hidden' if ch.use_date_range else '' }}">
+                        <span class="text-slate-400 text-sm">Last</span><input type="number" value="{{ ch.hours_back }}" min="1" max="8760" class="channel-hours w-20 input-field text-center"><span class="text-slate-400 text-sm">hours</span>
+                    </div>
+                    <div class="channel-daterange-mode flex flex-wrap items-center gap-3 {{ '' if ch.use_date_range else 'hidden' }}">
+                        <div class="flex items-center gap-2"><span class="text-slate-400 text-sm">From:</span><input type="datetime-local" value="{{ ch.from_date_str or '' }}" class="channel-from-date input-field text-sm"></div>
+                        <div class="flex items-center gap-2"><span class="text-slate-400 text-sm">To:</span><input type="datetime-local" value="{{ ch.to_date_str or '' }}" class="channel-to-date input-field text-sm"></div>
+                        <button onclick="setToNow(this)" class="text-indigo-400 text-xs px-2 py-1 bg-slate-700 rounded">Now</button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <button onclick="saveChannels()" class="mt-4 w-full btn-secondary py-2.5">Save Channels</button>
+        </div>
+
+        <!-- TAB: SCHEDULER -->
+        <div id="tab-scheduler" class="tab-panel">
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-2xl font-bold text-white">Scheduler</h2><p class="text-sm text-slate-400">Automate scraping with scheduled jobs</p></div>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <span class="text-sm text-slate-400">Auto-run</span>
+                    <input type="checkbox" id="scheduler-enabled" onchange="toggleScheduler()" class="w-10 h-5 bg-slate-700 rounded-full appearance-none cursor-pointer relative checked:bg-indigo-600 transition-colors before:content-[''] before:absolute before:w-4 before:h-4 before:bg-white before:rounded-full before:top-0.5 before:left-0.5 before:transition-transform checked:before:translate-x-5">
+                </label>
+            </div>
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 guide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>The <strong class="text-indigo-300">global scheduler</strong> runs the Dashboard quick scrape at a set time or interval. Each user also has <strong class="text-indigo-300">per-process scheduling</strong> inside Profiles — every process can have its own daily time or hourly interval, running independently. This means each user effectively has their own cron jobs without sharing the admin's schedule.</p>
+                </div>
+            </div>
+            <div class="card">
+                <div id="scheduler-options" class="space-y-4">
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="schedule-mode" value="daily" checked onchange="updateScheduleMode()" class="w-4 h-4"><span class="text-sm">Daily at specific time</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="schedule-mode" value="interval" onchange="updateScheduleMode()" class="w-4 h-4"><span class="text-sm">Every X hours</span></label>
+                    </div>
+                    <div id="daily-options" class="flex items-center gap-3"><span class="text-slate-400 text-sm">Run at:</span><input type="time" id="schedule-time" value="08:00" class="input-field w-auto"></div>
+                    <div id="interval-options" class="flex items-center gap-3 hidden"><span class="text-slate-400 text-sm">Every:</span><select id="schedule-interval" class="input-field w-auto"><option value="1">1 hr</option><option value="2">2 hrs</option><option value="4">4 hrs</option><option value="6" selected>6 hrs</option><option value="8">8 hrs</option><option value="12">12 hrs</option><option value="24">24 hrs</option></select></div>
+                    <div class="bg-[#0b1120] rounded-lg p-4 text-sm">
+                        <div class="flex justify-between"><span class="text-slate-500">Next run:</span><span id="next-run" class="text-white">Not scheduled</span></div>
+                        <div class="flex justify-between mt-1"><span class="text-slate-500">Last run:</span><span id="last-run" class="text-white">Never</span></div>
+                    </div>
+                    <button onclick="saveScheduler()" class="w-full btn-primary py-2.5">Save Schedule</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: ACTIVITY -->
+        <div id="tab-activity" class="tab-panel">
+            <div class="flex items-center justify-between mb-6">
+                <div><h2 class="text-2xl font-bold text-white">Activity &amp; Audit Log</h2><p class="text-sm text-slate-400">Full history of scraping operations and system events</p></div>
+                <button onclick="clearAuditLog()" class="text-red-400 hover:text-red-300 text-sm">Clear History</button>
+            </div>
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 guide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <p>This log tracks <strong class="text-indigo-300">every action</strong> in TeleDrive: scrape runs, profile changes, login events, settings updates, and errors. Use it to audit activity and debug issues.</p>
+                </div>
+            </div>
+            <div class="card"><div id="audit-container" class="space-y-3 max-h-[70vh] overflow-y-auto"><div class="text-slate-500 text-sm">Loading...</div></div></div>
+        </div>
+
+        <!-- TAB: SETTINGS -->
+        <div id="tab-settings" class="tab-panel">
+            <div class="mb-6"><h2 class="text-2xl font-bold text-white">Settings &amp; Credentials</h2><p class="text-sm text-slate-400">Your personal API credentials and connection settings</p></div>
+
+            <div class="guide-tip mb-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 guide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <div>
+                        <p>These are <strong class="text-indigo-300">your personal credentials</strong>. Each user has their own set of API keys. Scraping runs on your own Telegram account.</p>
+                        <p class="mt-1"><strong class="text-indigo-300">To get Telegram credentials:</strong> Visit <a href="https://my.telegram.org" target="_blank" class="underline text-indigo-400">my.telegram.org</a>, log in, go to "API development tools", and create an application. You'll get an API ID and API Hash.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="shared-creds-label" class="hidden guide-tip mb-3">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                    <p class="text-xs text-amber-300">These credentials are shared by your administrator and cannot be modified.</p>
+                </div>
+            </div>
+
+            <!-- Telegram -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-indigo-400" fill="currentColor" viewBox="0 0 24 24"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+                        Telegram API
+                    </h3>
+                    <div id="tg-status" class="badge bg-slate-700 text-slate-400">Unknown</div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-slate-500 mb-1">API ID</label><input type="text" id="set-tg-api-id" placeholder="e.g., 12345678" class="input-field"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">API Hash</label><input type="password" id="set-tg-api-hash" placeholder="Your API hash" class="input-field"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Phone Number</label><input type="text" id="set-tg-phone" placeholder="+1234567890" class="input-field"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Session Name</label><input type="text" id="set-tg-session" placeholder="td_user_1" class="input-field"></div>
+                </div>
+                <div class="flex gap-3 mt-4"><button onclick="saveUserCreds('telegram')" class="btn-primary text-sm py-2 px-4">Save</button><button onclick="testTelegram()" class="btn-secondary text-sm py-2 px-4">Test Connection</button></div>
+                <div id="tg-test-result" class="mt-3 text-sm hidden"></div>
+            </div>
+
+            <!-- Google -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 24 24"><path d="M19.385 2H4.615C3.17 2 2 3.17 2 4.615v14.77C2 20.83 3.17 22 4.615 22h14.77C20.83 22 22 20.83 22 19.385V4.615C22 3.17 20.83 2 19.385 2zM7 17.5H5v-2h2v2zm0-3H5v-2h2v2zm0-3H5v-2h2v2zm5 6H9v-2h3v2zm0-3H9v-2h3v2zm0-3H9v-2h3v2zm7 6h-5v-2h5v2zm0-3h-5v-2h5v2zm0-3h-5v-2h5v2z"/></svg>
+                        Google Sheets
+                    </h3>
+                    <div id="google-status" class="badge bg-slate-700 text-slate-400">Unknown</div>
+                </div>
+                <div class="guide-tip mb-3">
+                    <div class="flex items-start gap-2">
+                        <svg class="w-4 h-4 guide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <p>Enter a Google Service Account JSON filename (if file is in project folder) or paste the full JSON content. The Sheet ID is found in the Google Sheets URL after <code class="text-indigo-300">/d/</code>.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 gap-4">
+                    <div><label class="block text-xs text-slate-500 mb-1">Service Account JSON (filename or inline)</label><input type="text" id="set-google-creds" placeholder="service-account.json" class="input-field"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Sheet ID</label><input type="text" id="set-sheet-id" placeholder="From URL: docs.google.com/spreadsheets/d/SHEET_ID" class="input-field"></div>
+                </div>
+                <div class="flex gap-3 mt-4"><button onclick="saveUserCreds('google')" class="btn-primary text-sm py-2 px-4">Save</button><button onclick="testGoogle()" class="btn-secondary text-sm py-2 px-4">Test Connection</button></div>
+                <div id="google-test-result" class="mt-3 text-sm hidden"></div>
+            </div>
+
+            <!-- Profile Settings -->
+            <div class="card">
+                <h3 class="text-base font-semibold text-white mb-3">Account Settings</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><label class="block text-xs text-slate-500 mb-1">Display Name</label><input type="text" id="set-user-name" value="{{ user.name }}" class="input-field"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Email</label><input type="email" id="set-user-email" value="{{ user.email }}" class="input-field"></div>
+                </div>
+                <div class="flex gap-3 mt-4"><button onclick="saveUserProfile()" class="btn-primary text-sm py-2 px-4">Update Profile</button></div>
+                <div class="mt-4 pt-4 border-t border-slate-700">
+                    <h4 class="text-sm font-medium text-white mb-3">Change Password</h4>
+                    <div class="max-w-xs"><input type="password" id="new-password" placeholder="New password (min 6 chars)" class="input-field mb-3"><button onclick="changePassword()" class="btn-secondary text-sm py-2 px-4">Update Password</button></div>
+                </div>
+            </div>
+
+            <!-- User Theme (only visible if allowed by admin) -->
+            {% if allow_user_themes and user_theme_enabled %}
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="text-base font-semibold text-white flex items-center gap-2">
+                        <svg class="w-5 h-5" style="color:var(--td-primary)" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+                        My Theme
+                    </h3>
+                    <button onclick="resetUserTheme()" class="btn-secondary text-xs py-1 px-3">Reset to Default</button>
+                </div>
+                <div class="guide-tip mb-3">
+                    <div class="flex items-start gap-2">
+                        <svg class="w-4 h-4 guide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <p>Customize the colors of your dashboard. Changes are saved per-account and only affect your view. Click a color swatch to pick a new color.</p>
+                    </div>
+                </div>
+                <!-- Theme Presets -->
+                <div id="theme-presets-container" class="mb-4"></div>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-4" id="user-theme-grid">
+                    <div><label class="block text-xs text-slate-500 mb-1">Primary</label><div class="flex items-center gap-2"><input type="color" id="ut-primary" value="{{ theme.primary }}" class="color-swatch" onchange="previewUserTheme()"><span class="text-xs text-slate-500" id="ut-primary-hex">{{ theme.primary }}</span></div></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Secondary</label><div class="flex items-center gap-2"><input type="color" id="ut-secondary" value="{{ theme.secondary }}" class="color-swatch" onchange="previewUserTheme()"><span class="text-xs text-slate-500" id="ut-secondary-hex">{{ theme.secondary }}</span></div></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Background</label><div class="flex items-center gap-2"><input type="color" id="ut-bg" value="{{ theme.bg }}" class="color-swatch" onchange="previewUserTheme()"><span class="text-xs text-slate-500" id="ut-bg-hex">{{ theme.bg }}</span></div></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Sidebar</label><div class="flex items-center gap-2"><input type="color" id="ut-bg-sidebar" value="{{ theme.bg_sidebar }}" class="color-swatch" onchange="previewUserTheme()"><span class="text-xs text-slate-500" id="ut-bg-sidebar-hex">{{ theme.bg_sidebar }}</span></div></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Cards</label><div class="flex items-center gap-2"><input type="color" id="ut-bg-card" value="{{ theme.bg_card }}" class="color-swatch" onchange="previewUserTheme()"><span class="text-xs text-slate-500" id="ut-bg-card-hex">{{ theme.bg_card }}</span></div></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Borders</label><div class="flex items-center gap-2"><input type="color" id="ut-border" value="{{ theme.border }}" class="color-swatch" onchange="previewUserTheme()"><span class="text-xs text-slate-500" id="ut-border-hex">{{ theme.border }}</span></div></div>
+                </div>
+                <div class="flex gap-3 mt-4">
+                    <button onclick="saveUserTheme()" class="btn-primary text-sm py-2 px-4">Save Theme</button>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Security Question -->
+            <div class="card">
+                <h3 class="text-sm font-semibold text-white mb-3">Security Question</h3>
+                <p class="text-xs text-slate-400 mb-3">Set a security question to recover your account if you forget your password.</p>
+                <div id="security-question-section">Loading...</div>
+            </div>
+
+            <!-- Danger -->
+            <div class="card border-red-900/50">
+                <h3 class="text-base font-semibold text-red-400 mb-3">Danger Zone</h3>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="resetSettings()" class="btn-danger text-sm py-2 px-4">Reset All Settings</button>
+                    <p class="text-slate-500 text-sm self-center">Resets scheduler and app settings (keeps channels and profiles)</p>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- MODALS -->
+    <!-- Profile Modal -->
+    <div id="profile-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] rounded-xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-700">
+            <h3 id="profile-modal-title" class="text-lg font-semibold mb-4">New Profile</h3>
+            <input type="hidden" id="profile-edit-id" value="">
+            <div class="space-y-3">
+                <div><label class="block text-xs text-slate-500 mb-1">Profile Name</label><input type="text" id="profile-name" placeholder="e.g., DarbMirror Historical" class="input-field"></div>
+                <div id="profile-channel-select-wrap">
+                    <label class="block text-xs text-slate-500 mb-1">Select Channel</label>
+                    <select id="profile-channel-select" class="input-field mb-2" onchange="if(this.value){document.getElementById('profile-channel').parentElement.classList.add('hidden')}else{document.getElementById('profile-channel').parentElement.classList.remove('hidden')}">
+                        <option value="">-- Or enter manually below --</option>
+                    </select>
+                </div>
+                <div><label class="block text-xs text-slate-500 mb-1">Channel Username (without @)</label><input type="text" id="profile-channel" placeholder="e.g., DarbMirror" class="input-field"></div>
+                <div><label class="block text-xs text-slate-500 mb-1">Description</label><input type="text" id="profile-desc" placeholder="Optional" class="input-field"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-xs text-slate-500 mb-1">Export Format</label><select id="profile-format" class="input-field"><option value="xlsx">Excel</option><option value="csv">CSV</option><option value="json">JSON</option></select></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">Save Location</label><select id="profile-location" class="input-field"><option value="default">Project</option><option value="desktop">Desktop</option><option value="documents">Documents</option><option value="custom">Custom</option></select></div>
+                </div>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="profile-sheets" class="w-4 h-4 rounded bg-slate-700 border-slate-600"><span class="text-sm text-slate-300">Also push to Google Sheets</span></label>
+                <div class="border-t border-slate-700 pt-3">
+                    <h4 class="text-sm font-medium text-indigo-400 mb-2">Scrape Settings</h4>
+                    <div class="guide-tip mb-3">
+                        <div class="flex items-start gap-2">
+                            <svg class="w-4 h-4 guide-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <p>Set a date range and a daily limit. TeleDrive will scrape in batches, pausing when the daily limit is reached and resuming the next day from where it left off. This protects against Telegram rate limits.</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3"><div><label class="block text-xs text-slate-500 mb-1">From Date</label><input type="date" id="profile-from-date" class="input-field"></div><div><label class="block text-xs text-slate-500 mb-1">To Date</label><input type="date" id="profile-to-date" class="input-field"></div></div>
+                    <div class="grid grid-cols-2 gap-3 mt-3"><div><label class="block text-xs text-slate-500 mb-1">Daily Limit</label><input type="number" id="profile-daily-limit" value="50000" min="0" class="input-field"></div><div><label class="block text-xs text-slate-500 mb-1">Batch Delay (sec)</label><input type="number" id="profile-delay" value="1.0" min="0.3" step="0.1" class="input-field"></div></div>
+                </div>
+            </div>
+            <div class="flex gap-3 mt-5"><button onclick="saveProfile()" class="flex-1 btn-primary py-2">Save</button><button onclick="closeProfileModal()" class="flex-1 btn-secondary py-2">Cancel</button></div>
+        </div>
+    </div>
+
+    <!-- Process Modal -->
+    <div id="process-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] rounded-xl p-6 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto border border-slate-700">
+            <h3 id="process-modal-title" class="text-lg font-semibold mb-4">New Process</h3>
+            <input type="hidden" id="process-profile-id" value=""><input type="hidden" id="process-edit-id" value="">
+            <div class="space-y-3">
+                <div><label class="block text-xs text-slate-500 mb-1">Process Name</label><input type="text" id="process-name" placeholder="e.g., Backfill 2023" class="input-field"></div>
+                <div><label class="block text-xs text-slate-500 mb-1">Type</label><select id="process-type" onchange="toggleProcessFields()" class="input-field"><option value="date_range">Date Range</option><option value="rolling">Rolling</option><option value="one_time">One-Time</option></select></div>
+                <div id="process-daterange-fields" class="grid grid-cols-2 gap-3"><div><label class="block text-xs text-slate-500 mb-1">From Date</label><input type="date" id="process-from-date" class="input-field"></div><div><label class="block text-xs text-slate-500 mb-1">To Date</label><input type="date" id="process-to-date" class="input-field"></div></div>
+                <div id="process-rolling-fields" class="hidden"><label class="block text-xs text-slate-500 mb-1">Hours Back</label><input type="number" id="process-hours" value="24" min="1" class="input-field"></div>
+                <div class="grid grid-cols-2 gap-3"><div><label class="block text-xs text-slate-500 mb-1">Daily Limit</label><input type="number" id="process-daily-limit" value="50000" min="0" class="input-field"></div><div><label class="block text-xs text-slate-500 mb-1">Batch Delay</label><input type="number" id="process-delay" value="1.0" min="0.3" step="0.1" class="input-field"></div></div>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" id="process-schedule" onchange="toggleScheduleFields()" class="w-4 h-4"><span class="text-sm text-slate-300">Enable Schedule</span></label>
+                <div id="process-schedule-fields" class="grid grid-cols-2 gap-3 hidden"><div><label class="block text-xs text-slate-500 mb-1">Run At (daily)</label><input type="time" id="process-schedule-time" value="08:00" class="input-field"></div><div><label class="block text-xs text-slate-500 mb-1">Or Every X Hours</label><input type="number" id="process-interval" placeholder="6" min="1" class="input-field"></div></div>
+            </div>
+            <div class="flex gap-3 mt-5"><button onclick="saveProcess()" class="flex-1 btn-primary py-2">Save</button><button onclick="closeProcessModal()" class="flex-1 btn-secondary py-2">Cancel</button></div>
+        </div>
+    </div>
+
+    <!-- Process Log Modal -->
+    <div id="process-log-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#1e293b] rounded-xl p-6 w-full max-w-2xl shadow-2xl border border-slate-700">
+            <div class="flex items-center justify-between mb-4"><h3 id="process-log-title" class="text-lg font-semibold">Process Log</h3><button onclick="closeProcessLogModal()" class="text-slate-400 hover:text-white text-xl">&times;</button></div>
+            <div id="process-log-container" class="log-container bg-[#0b1120] rounded-lg p-4 font-mono text-sm space-y-1 max-h-[60vh]"><div class="text-slate-500">Listening...</div></div>
+        </div>
+    </div>
+
+    <!-- Halt Banner (non-blocking) -->
+    <div id="app-halt-banner" class="fixed top-0 left-60 right-0 z-50 hidden">
+        <div class="bg-red-600/90 backdrop-blur-sm px-4 py-2.5 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z"/></svg>
+                <span class="text-white text-sm font-medium">Scraping is paused. You can still configure settings and profiles.</span>
+            </div>
+            {% if user.role == 'admin' %}
+            <button onclick="toggleApp()" class="bg-green-600 hover:bg-green-500 text-white text-xs font-semibold px-4 py-1.5 rounded-lg transition cursor-pointer">Re-enable</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

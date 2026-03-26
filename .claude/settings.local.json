@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip install:*)",
+      "Bash(python -c \"import src.auth; print\\(''auth.py OK''\\); print\\(''Roles:'', list\\(src.auth.ROLES.keys\\(\\)\\)\\)\")"
+    ]
+  }
+}

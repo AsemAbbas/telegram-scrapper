@@ -22,7 +22,7 @@ def get_connection():
 def _init_tables(conn):
     """Initialize database tables."""
     cursor = conn.cursor()
-    
+
     # Audit/Activity log table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS audit_log (
@@ -33,6 +33,16 @@ def _init_tables(conn):
             status TEXT DEFAULT 'success'
         )
     """)
+
+    # Migration: add user tracking columns to audit_log
+    try:
+        cursor.execute("ALTER TABLE audit_log ADD COLUMN user_id INTEGER")
+    except sqlite3.OperationalError:
+        pass
+    try:
+        cursor.execute("ALTER TABLE audit_log ADD COLUMN user_email TEXT")
+    except sqlite3.OperationalError:
+        pass
     
     # Scraped messages backup table
     cursor.execute("""
@@ -79,26 +89,33 @@ def _init_tables(conn):
 # Audit Log Functions
 # ═══════════════════════════════════════════════════════════════
 
-def log_audit(action: str, details: str = None, status: str = "success"):
+def log_audit(action: str, details: str = None, status: str = "success",
+              user_id: int = None, user_email: str = None):
     """Log an action to the audit trail."""
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO audit_log (timestamp, action, details, status) VALUES (?, ?, ?, ?)",
-        (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), action, details, status)
+        "INSERT INTO audit_log (timestamp, action, details, status, user_id, user_email) VALUES (?, ?, ?, ?, ?, ?)",
+        (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), action, details, status, user_id, user_email)
     )
     conn.commit()
     conn.close()
 
 
-def get_audit_log(limit: int = 100):
-    """Get recent audit log entries."""
+def get_audit_log(limit: int = 100, user_id: int = None):
+    """Get recent audit log entries. If user_id provided, filter to that user only."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT * FROM audit_log ORDER BY id DESC LIMIT ?",
-        (limit,)
-    )
+    if user_id is not None:
+        cursor.execute(
+            "SELECT * FROM audit_log WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+            (user_id, limit)
+        )
+    else:
+        cursor.execute(
+            "SELECT * FROM audit_log ORDER BY id DESC LIMIT ?",
+            (limit,)
+        )
     rows = [dict(row) for row in cursor.fetchall()]
     conn.close()
     return rows
