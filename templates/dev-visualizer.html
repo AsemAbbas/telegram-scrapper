@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeleDrive — Dev Visualizer</title>
+<link rel="icon" type="image/svg+xml" href="/static/favicon{{ logo_variant }}.svg?t={{ theme.primary | replace('#','') }}">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ========== THEME INJECTION ========== */
+:root {
+  /* Fallback defaults (overridden by Flask theme injection) */
+  --td-primary: #6366f1;
+  --td-primary-rgb: 99,102,241;
+  --td-secondary: #8b5cf6;
+  --td-secondary-rgb: 139,92,246;
+  --td-bg: #0b0f1a;
+  --td-bg-card: #111827;
+  --td-bg-sidebar: #0f1420;
+  --td-bg-input: #1a2032;
+  --td-text: #e2e8f0;
+  --td-text-muted: #94a3b8;
+  --td-border: #1e293b;
+  --td-success: #22c55e;
+  --td-warning: #f59e0b;
+  --td-danger: #ef4444;
+  {{ theme_css | safe }}
+}
+
+/* ========== RESET & FOUNDATION ========== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+*{font-family:'Inter',system-ui,-apple-system,sans-serif}
+body{background:var(--td-bg);color:var(--td-text);line-height:1.7;overflow-x:hidden;font-size:15px}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--td-bg)}
+::-webkit-scrollbar-thumb{background:var(--td-border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--td-text-muted)}
+a{color:var(--td-primary);text-decoration:none}
+a:hover{opacity:.85}
+code{font-family:'Cascadia Code','Fira Code','JetBrains Mono',monospace;font-size:0.85em;background:rgba(var(--td-primary-rgb),.08);padding:2px 6px;border-radius:6px;color:var(--td-primary)}
+
+/* ========== BRAND ========== */
+.brand-gradient{color:var(--td-primary)}
+
+/* ========== SIDEBAR ========== */
+#sidebar{position:fixed;top:0;left:0;width:260px;height:100vh;background:var(--td-bg-sidebar,var(--td-bg-card));border-right:1px solid var(--td-border);z-index:100;display:flex;flex-direction:column;transition:transform .3s ease}
+.sidebar-brand{padding:20px 20px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--td-border)}
+.sidebar-brand img{width:36px;height:36px;border-radius:10px}
+.sidebar-brand h1{font-size:20px;font-weight:800}
+.sidebar-brand p{font-size:10px;color:var(--td-text-muted);margin-top:-2px;letter-spacing:1px;text-transform:uppercase}
+.sidebar-nav{flex:1;padding:12px 8px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:12px;padding:10px 14px;color:var(--td-text-muted);cursor:pointer;transition:all .15s;border-left:3px solid transparent;border-radius:0 8px 8px 0;font-size:14px;font-weight:500}
+.nav-item:hover{background:rgba(var(--td-primary-rgb),.08);color:var(--td-text)}
+.nav-item.active{background:rgba(var(--td-primary-rgb),.1);border-left-color:var(--td-primary);color:var(--td-primary);font-weight:600}
+.nav-item .nav-icon{font-size:16px;width:22px;text-align:center}
+.nav-item .nav-key{margin-left:auto;font-size:10px;color:var(--td-text-muted);background:rgba(var(--td-primary-rgb),.06);padding:2px 6px;border-radius:4px;font-family:'Cascadia Code','Fira Code',monospace}
+.sidebar-footer{padding:16px 20px;border-top:1px solid var(--td-border);font-size:12px;color:var(--td-text-muted);text-align:center}
+.sidebar-footer kbd{background:rgba(var(--td-primary-rgb),.1);padding:1px 6px;border-radius:4px;font-family:inherit;font-size:11px;border:1px solid rgba(var(--td-primary-rgb),.15)}
+
+/* ========== MAIN CONTENT ========== */
+#content{margin-left:260px;min-height:100vh}
+.section{padding:48px 40px;border-bottom:1px solid var(--td-border)}
+.section-header{margin-bottom:36px}
+.section-header h2{font-size:24px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:12px}
+.section-header p{color:var(--td-text-muted);font-size:15px;max-width:700px;line-height:1.7}
+
+/* ========== CARD ========== */
+.card{background:var(--td-bg-card);border:1px solid var(--td-border);border-radius:12px;padding:24px;margin-bottom:16px;transition:border-color .2s}
+.card:hover{border-color:rgba(var(--td-primary-rgb),.2)}
+.card h3{font-size:16px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+
+/* ========== BADGES ========== */
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:9999px;font-size:11px;font-weight:600;letter-spacing:.3px}
+.badge-role{font-size:10px;padding:3px 10px;border-radius:6px;font-weight:600}
+.badge-admin{background:rgba(245,158,11,.12);color:#fbbf24}
+.badge-editor{background:rgba(var(--td-primary-rgb),.12);color:var(--td-primary)}
+.badge-tester{background:rgba(168,85,247,.12);color:#c084fc}
+.badge-user{background:rgba(100,116,139,.12);color:#94a3b8}
+
+/* ========== TABLES ========== */
+.data-table{width:100%;border-collapse:collapse;font-size:14px}
+.data-table th{text-align:left;padding:10px 12px;background:rgba(var(--td-primary-rgb),.06);color:var(--td-primary);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--td-border)}
+.data-table td{padding:9px 12px;border-bottom:1px solid var(--td-border);vertical-align:top}
+.data-table tr:hover td{background:rgba(var(--td-primary-rgb),.03)}
+.type-tag{font-family:'Cascadia Code','Fira Code',monospace;font-size:11px;color:var(--td-primary);background:rgba(var(--td-primary-rgb),.08);padding:2px 6px;border-radius:6px}
+.constraint-tag{font-family:'Cascadia Code','Fira Code',monospace;font-size:10px;padding:2px 6px;border-radius:6px;margin-right:4px;display:inline-block;margin-bottom:2px}
+.pk-tag{background:rgba(245,158,11,.12);color:#fbbf24}
+.fk-tag{background:rgba(var(--td-primary-rgb),.12);color:var(--td-primary)}
+.unique-tag{background:rgba(236,72,153,.12);color:#f472b6}
+.index-tag{background:rgba(34,197,94,.12);color:#4ade80}
+
+/* ========== ACCORDION ========== */
+.accordion{border:1px solid var(--td-border);border-radius:10px;overflow:hidden;margin-bottom:10px}
+.accordion:hover{border-color:rgba(var(--td-primary-rgb),.2)}
+.accordion-header{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;cursor:pointer;background:var(--td-bg-card);transition:background .15s;gap:12px}
+.accordion-header:hover{background:rgba(var(--td-primary-rgb),.04)}
+.accordion-header h3{font-size:15px;font-weight:600;display:flex;align-items:center;gap:10px;margin:0}
+.accordion-header .count{font-size:12px;color:var(--td-text-muted);font-weight:400}
+.accordion-chevron{transition:transform .3s;color:var(--td-text-muted);font-size:11px}
+.accordion.open .accordion-chevron{transform:rotate(180deg)}
+.accordion-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.accordion.open .accordion-body{max-height:5000px}
+.accordion-content{padding:0 18px 18px}
+
+/* ========== ENDPOINT ROW ========== */
+.endpoint-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--td-border);flex-wrap:wrap}
+.endpoint-row:last-child{border-bottom:none}
+.endpoint-path{font-family:'Cascadia Code','Fira Code',monospace;font-size:13px;color:var(--td-text)}
+.endpoint-path .param{color:#fbbf24}
+.endpoint-desc{font-size:13px;color:var(--td-text-muted);flex:1;min-width:200px}
+.method{font-family:'Cascadia Code','Fira Code',monospace;font-size:12px;font-weight:700;padding:3px 9px;border-radius:6px;min-width:52px;text-align:center;display:inline-block}
+.method-get{background:rgba(34,197,94,.1);color:#4ade80}
+.method-post{background:rgba(var(--td-primary-rgb),.1);color:var(--td-primary)}
+.method-put{background:rgba(245,158,11,.1);color:#fbbf24}
+.method-delete{background:rgba(239,68,68,.1);color:#f87171}
+
+/* ========== ARCHITECTURE ========== */
+.arch-tier{margin-bottom:28px}
+.arch-tier-label{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--td-text-muted);margin-bottom:10px;padding-left:4px;font-weight:600}
+.arch-boxes{display:flex;gap:10px;flex-wrap:wrap}
+.arch-box{background:var(--td-bg-card);border:1px solid var(--td-border);border-radius:10px;padding:14px 18px;min-width:140px;transition:border-color .2s;position:relative;flex:1}
+.arch-box:hover{border-color:rgba(var(--td-primary-rgb),.25)}
+.arch-box .arch-name{font-size:14px;font-weight:600;margin-bottom:3px}
+.arch-box .arch-detail{font-size:12px;color:var(--td-text-muted);font-family:'Cascadia Code','Fira Code',monospace}
+.arch-box .arch-port{position:absolute;top:8px;right:10px;font-size:11px;color:var(--td-text-muted);font-family:'Cascadia Code','Fira Code',monospace}
+.arch-pipeline{display:flex;align-items:center;gap:0;flex-wrap:wrap;margin:12px 0;padding:12px;background:var(--td-bg-card);border-radius:10px;border:1px solid var(--td-border)}
+.pipe-step{padding:6px 12px;background:var(--td-bg);border:1px solid var(--td-border);border-radius:8px;font-size:12px;color:var(--td-text-muted);white-space:nowrap}
+.pipe-step:hover{color:var(--td-text)}
+.pipe-arrow{color:var(--td-text-muted);padding:0 4px;font-size:14px;opacity:.5}
+.arch-modules-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin-top:12px}
+.arch-module{background:var(--td-bg);border:1px solid var(--td-border);border-radius:8px;padding:8px 12px;font-size:13px;text-align:center}
+.arch-module:hover{border-color:rgba(var(--td-primary-rgb),.2)}
+.arch-module .mod-prefix{font-family:'Cascadia Code','Fira Code',monospace;font-size:11px;color:var(--td-text-muted);display:block;margin-top:2px}
+
+/* ========== PERMISSION MATRIX ========== */
+.perm-table{width:100%;border-collapse:collapse}
+.perm-table th{padding:12px 16px;background:rgba(var(--td-primary-rgb),.05);border:1px solid var(--td-border);font-size:12px;text-transform:uppercase;letter-spacing:.5px;text-align:center;font-weight:600}
+.perm-table th:first-child{text-align:left;min-width:200px}
+.perm-table td{padding:10px 16px;border:1px solid var(--td-border);text-align:center;font-size:18px}
+.perm-table td:first-child{text-align:left;font-size:14px;font-family:'Cascadia Code','Fira Code',monospace;color:var(--td-text-muted)}
+.perm-table tr:hover td{background:rgba(var(--td-primary-rgb),.03)}
+.perm-yes{color:#4ade80}
+.perm-no{color:#ef4444;opacity:.3}
+
+/* ========== JOURNEY ========== */
+.journey-container{margin-bottom:36px}
+.journey-title{font-size:17px;font-weight:600;margin-bottom:4px}
+.journey-subtitle{font-size:13px;color:var(--td-text-muted);margin-bottom:18px}
+.journey-timeline{display:flex;align-items:stretch;gap:0;overflow-x:auto;padding:16px 0}
+.journey-step{flex:0 0 165px;display:flex;flex-direction:column;align-items:center;text-align:center;position:relative;opacity:0;transform:translateY(20px)}
+.journey-step.visible{opacity:1;transform:translateY(0);transition:all .5s ease}
+.journey-step .step-icon{width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;margin-bottom:10px;border:1px solid var(--td-border);background:var(--td-bg-card);position:relative;z-index:2}
+.journey-step .step-title{font-size:13px;font-weight:600;margin-bottom:3px}
+.journey-step .step-api{font-family:'Cascadia Code','Fira Code',monospace;font-size:10px;color:var(--td-text-muted);margin-bottom:3px;word-break:break-all}
+.journey-step .step-desc{font-size:12px;color:var(--td-text-muted);line-height:1.4}
+.journey-connector{flex:0 0 24px;display:flex;align-items:center;justify-content:center;position:relative;align-self:flex-start;margin-top:26px}
+.journey-connector::after{content:'';display:block;width:24px;height:2px;background:var(--td-border)}
+
+/* ========== ENV TABLE ========== */
+.env-table{width:100%;border-collapse:collapse;font-size:14px}
+.env-table th{text-align:left;padding:10px 12px;background:rgba(var(--td-primary-rgb),.06);color:var(--td-primary);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--td-border)}
+.env-table td{padding:9px 12px;border-bottom:1px solid var(--td-border);vertical-align:top}
+.env-table tr:hover td{background:rgba(var(--td-primary-rgb),.03)}
+.env-key{font-family:'Cascadia Code','Fira Code',monospace;font-size:13px;color:var(--td-primary);white-space:nowrap}
+.env-source{font-size:10px;padding:2px 8px;border-radius:9999px;font-weight:600}
+.src-env{background:rgba(34,197,94,.1);color:#4ade80}
+.src-github{background:rgba(168,85,247,.1);color:#c084fc}
+.src-db{background:rgba(245,158,11,.1);color:#fbbf24}
+.src-ui{background:rgba(236,72,153,.1);color:#f472b6}
+
+/* ========== FILE TREE ========== */
+.file-tree{font-family:'Cascadia Code','Fira Code',monospace;font-size:12px;line-height:1.9;color:var(--td-text-muted);background:var(--td-bg);border:1px solid var(--td-border);padding:18px;border-radius:10px;overflow-x:auto}
+.file-tree pre{margin:0}
+
+/* ========== CRON SECTION ========== */
+.cron-box{background:var(--td-bg-card);border:1px solid var(--td-border);border-radius:10px;padding:20px;margin-bottom:16px}
+.cron-expression{font-family:'Cascadia Code','Fira Code',monospace;font-size:20px;color:var(--td-primary);letter-spacing:4px;margin-bottom:8px;font-weight:700}
+.cron-desc{font-size:13px;color:var(--td-text-muted)}
+
+/* ========== GRID HELPERS ========== */
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px}
+@media(max-width:900px){.grid-2,.grid-3{grid-template-columns:1fr}}
+
+/* ========== STAT BOX ========== */
+.stat-box{background:var(--td-bg-card);border:1px solid var(--td-border);border-radius:10px;padding:18px 12px;text-align:center}
+.stat-box:hover{border-color:rgba(var(--td-primary-rgb),.2)}
+.stat-box .stat-value{font-size:28px;font-weight:700;color:var(--td-primary)}
+.stat-box .stat-label{font-size:13px;color:var(--td-text-muted);margin-top:4px;font-weight:500}
+
+/* ========== INFO BOXES ========== */
+.info-box{padding:14px 18px;border-radius:10px;font-size:14px;line-height:1.6;margin-bottom:12px}
+.info-box.info{background:rgba(var(--td-primary-rgb),.05);border:1px solid var(--td-border);color:var(--td-text-muted)}
+.info-box.warn{background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.2);color:#fbbf24}
+.info-box.danger{background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);color:#f87171}
+.info-box.success{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);color:#4ade80}
+.info-box strong{display:block;margin-bottom:4px}
+.info-box code{background:rgba(var(--td-primary-rgb),.1);font-size:11px}
+
+/* ========== ANIMATIONS ========== */
+
+/* ========== RESPONSIVE ========== */
+@media(max-width:1024px){
+  #sidebar{transform:translateX(-100%)}
+  #sidebar.open{transform:translateX(0)}
+  #content{margin-left:0}
+  .section{padding:32px 16px}
+  .mobile-toggle{display:flex !important}
+}
+.mobile-toggle{display:none;position:fixed;top:16px;left:16px;z-index:101;background:var(--td-bg-card);border:1px solid rgba(var(--td-primary-rgb),.2);border-radius:10px;padding:8px 12px;color:var(--td-text);cursor:pointer;font-size:18px;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(0,0,0,.3)}
+
+/* ========== SEARCH ========== */
+#global-search{position:fixed;top:0;left:260px;right:0;z-index:90;padding:12px 40px;background:rgba(var(--td-bg-card-rgb,17,24,39),.92);backdrop-filter:blur(16px);border-bottom:1px solid rgba(var(--td-primary-rgb),.12);display:none;align-items:center;gap:12px}
+#global-search.visible{display:flex}
+#search-input{flex:1;background:var(--td-bg-input,var(--td-bg));border:1px solid var(--td-border);border-radius:10px;padding:10px 16px;color:var(--td-text);font-size:14px;outline:none;font-family:inherit}
+#search-input:focus{border-color:var(--td-primary);outline:none}
+#search-close{background:none;border:1px solid rgba(var(--td-primary-rgb),.15);color:var(--td-text-muted);cursor:pointer;font-size:14px;padding:6px 10px;border-radius:8px;transition:all .15s}
+#search-close:hover{background:rgba(var(--td-primary-rgb),.1);color:var(--td-text)}
+.search-hidden{display:none !important}
+
+/* glow-line removed */
+</style>
+</head>
+<body>
+
+<!-- Mobile Toggle -->
+<button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">
+  <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+</button>
+
+<!-- SIDEBAR -->
+<nav id="sidebar">
+  <div class="sidebar-brand">
+    <svg width="36" height="36" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style="border-radius:10px;flex-shrink:0">
+      <defs><linearGradient id="logo-bg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:var(--td-primary)"/><stop offset="100%" style="stop-color:var(--td-secondary)"/></linearGradient></defs>
+      <rect width="100" height="100" rx="22" fill="url(#logo-bg)"/>
+      <path d="M30 38 L50 26 L50 34 L70 34 L70 46 L50 46 L50 50 Z" fill="white" opacity="0.9"/>
+      <path d="M70 62 L50 74 L50 66 L30 66 L30 54 L50 54 L50 50 Z" fill="white" opacity="0.55"/>
+    </svg>
+    <div>
+      <h1 class="brand-gradient">TeleDrive</h1>
+      <p>Dev Visualizer</p>
+    </div>
+  </div>
+  <div class="sidebar-nav">
+    <div class="nav-item active" data-section="overview"><span class="nav-icon">&#128200;</span>Overview<span class="nav-key">1</span></div>
+    <div class="nav-item" data-section="architecture"><span class="nav-icon">&#127959;</span>Architecture<span class="nav-key">2</span></div>
+    <div class="nav-item" data-section="db-schema"><span class="nav-icon">&#128451;</span>Database Schema<span class="nav-key">3</span></div>
+    <div class="nav-item" data-section="api-ref"><span class="nav-icon">&#128225;</span>API / Routes<span class="nav-key">4</span></div>
+    <div class="nav-item" data-section="permissions"><span class="nav-icon">&#128274;</span>Permissions<span class="nav-key">5</span></div>
+    <div class="nav-item" data-section="journeys"><span class="nav-icon">&#128640;</span>User Journeys<span class="nav-key">6</span></div>
+    <div class="nav-item" data-section="customization"><span class="nav-icon">&#9881;</span>Customization<span class="nav-key">7</span></div>
+    <div class="nav-item" data-section="cron-github"><span class="nav-icon">&#9200;</span>Cron &amp; GitHub<span class="nav-key">8</span></div>
+    <div class="nav-item" data-section="under-hood"><span class="nav-icon">&#128295;</span>Under the Hood<span class="nav-key">9</span></div>
+  </div>
+  <div class="sidebar-footer">Local Dev Tool &middot; Never Goes Online<br>Press <kbd>/</kbd> to search</div>
+</nav>
+
+<!-- GLOBAL SEARCH -->
+<div id="global-search">
+  <input type="text" id="search-input" placeholder="Search tables, routes, env vars..." autofocus>
+  <button id="search-close" onclick="toggleSearch(false)">&#10005; ESC</button>
+</div>
+
+<!-- MAIN CONTENT -->
+<main id="content">
+
+<!-- ===== SECTION 1: OVERVIEW ===== -->
+<section class="section" id="overview">
+  <div class="section-header">
+    <h2><span class="brand-gradient">Project Overview</span></h2>
+    <p>TeleDrive is a multi-user Telegram Channel Intelligence Platform for scraping, archiving, and exporting Telegram public channel data to Google Sheets, CSV, JSON, or Excel.</p>
+  </div>
+
+  <div class="grid-3" style="margin-bottom:28px">
+    <div class="stat-box"><div class="stat-value">6</div><div class="stat-label">Flask Blueprints</div></div>
+    <div class="stat-box"><div class="stat-value">2</div><div class="stat-label">SQLite Databases</div></div>
+    <div class="stat-box"><div class="stat-value">4</div><div class="stat-label">User Roles</div></div>
+    <div class="stat-box"><div class="stat-value">3</div><div class="stat-label">Export Formats</div></div>
+    <div class="stat-box"><div class="stat-value">20+</div><div class="stat-label">Data Fields / Message</div></div>
+    <div class="stat-box"><div class="stat-value">3</div><div class="stat-label">Subscription Plans</div></div>
+  </div>
+
+  <div class="accordion">
+    <div class="accordion-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>&#128193; Project Structure</h3>
+      <span class="accordion-chevron">&#9660;</span>
+    </div>
+    <div class="accordion-body"><div class="accordion-content">
+    <div class="file-tree"><pre>telegram-scraper/
+&#9500;&#9472;&#9472; .github/workflows/
+&#9474;   &#9492;&#9472;&#9472; daily-scrape.yml          <span style="color:var(--td-primary)">GitHub Actions cron job</span>
+&#9500;&#9472;&#9472; src/                              <span style="color:var(--td-text-muted)">Core scraping engine</span>
+&#9474;   &#9500;&#9472;&#9472; config.py                 <span style="color:var(--td-primary)">Env loader &amp; channel config</span>
+&#9474;   &#9500;&#9472;&#9472; scraper.py                <span style="color:var(--td-primary)">Telethon-based Telegram scraper</span>
+&#9474;   &#9500;&#9472;&#9472; sheets.py                 <span style="color:var(--td-primary)">Google Sheets (OAuth + Service Account)</span>
+&#9474;   &#9500;&#9472;&#9472; auth.py                   <span style="color:var(--td-primary)">User auth, themes, roles</span>
+&#9474;   &#9500;&#9472;&#9472; profiles.py               <span style="color:var(--td-primary)">Profile/process/channel management</span>
+&#9474;   &#9500;&#9472;&#9472; local_db.py               <span style="color:var(--td-primary)">SQLite backup &amp; audit logging</span>
+&#9474;   &#9492;&#9472;&#9472; local_export.py           <span style="color:var(--td-primary)">CSV / JSON / Excel export</span>
+&#9500;&#9472;&#9472; routes/                           <span style="color:var(--td-text-muted)">Flask Blueprints</span>
+&#9474;   &#9500;&#9472;&#9472; auth_routes.py            <span style="color:#4ade80">Login, register, password reset</span>
+&#9474;   &#9500;&#9472;&#9472; admin_routes.py           <span style="color:#4ade80">User mgmt, system settings</span>
+&#9474;   &#9500;&#9472;&#9472; profile_routes.py         <span style="color:#4ade80">Profile &amp; process CRUD</span>
+&#9474;   &#9500;&#9472;&#9472; scraper_routes.py         <span style="color:#4ade80">Scraper execution &amp; scheduler</span>
+&#9474;   &#9500;&#9472;&#9472; settings_routes.py        <span style="color:#4ade80">Credentials &amp; app settings</span>
+&#9474;   &#9500;&#9472;&#9472; google_routes.py          <span style="color:#4ade80">Google OAuth &amp; sheet mgmt</span>
+&#9474;   &#9500;&#9472;&#9472; channel_routes.py         <span style="color:#4ade80">Channel discovery</span>
+&#9474;   &#9492;&#9472;&#9472; shared.py                 <span style="color:#4ade80">Auth middleware &amp; shared state</span>
+&#9500;&#9472;&#9472; templates/                        <span style="color:var(--td-text-muted)">Jinja2 HTML</span>
+&#9474;   &#9500;&#9472;&#9472; landing.html              <span style="color:#fbbf24">Public homepage</span>
+&#9474;   &#9500;&#9472;&#9472; login.html / register.html<span style="color:#fbbf24">Auth pages</span>
+&#9474;   &#9500;&#9472;&#9472; dashboard.html            <span style="color:#fbbf24">Main dashboard (tabbed UI)</span>
+&#9474;   &#9500;&#9472;&#9472; admin.html                <span style="color:#fbbf24">Admin panel</span>
+&#9474;   &#9492;&#9472;&#9472; setup-guide.html          <span style="color:#fbbf24">Interactive setup wizard</span>
+&#9500;&#9472;&#9472; static/
+&#9474;   &#9500;&#9472;&#9472; app.js                    <span style="color:#f472b6">Frontend JS (SocketIO, tabs, API)</span>
+&#9474;   &#9492;&#9472;&#9472; favicon-*.svg             <span style="color:#f472b6">Theme-colored logos</span>
+&#9500;&#9472;&#9472; data/
+&#9474;   &#9500;&#9472;&#9472; scraper.db                <span style="color:#fbbf24">Messages + audit log</span>
+&#9474;   &#9492;&#9472;&#9472; teledrive.db              <span style="color:#fbbf24">Users + auth + settings</span>
+&#9500;&#9472;&#9472; web_app.py                        <span style="color:#f472b6">Flask entry point</span>
+&#9500;&#9472;&#9472; main.py                           <span style="color:#f472b6">CLI scraper entry</span>
+&#9500;&#9472;&#9472; passenger_wsgi.py                 <span style="color:#f472b6">cPanel deployment wrapper</span>
+&#9500;&#9472;&#9472; auth_session.py                   <span style="color:#f472b6">Telegram session generator</span>
+&#9500;&#9472;&#9472; channels.json                     <span style="color:var(--td-primary)">Channel list config</span>
+&#9492;&#9472;&#9472; scheduler_config.json             <span style="color:var(--td-primary)">Scheduler state</span></pre>
+    </div>
+    </div></div>
+  </div>
+
+  <div class="accordion">
+    <div class="accordion-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>&#128218; Tech Stack</h3>
+      <span class="accordion-chevron">&#9660;</span>
+    </div>
+    <div class="accordion-body"><div class="accordion-content">
+    <div class="grid-3">
+      <div>
+        <div style="font-size:11px;color:var(--td-primary);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:700">Backend</div>
+        <div style="font-size:13px;line-height:2;color:var(--td-text-muted)">
+          Flask 3.1.0<br>Flask-SocketIO 5.4.1<br>Telethon 1.36.0<br>gspread 6.1.4<br>APScheduler 3.10.4<br>bcrypt 4.2.1<br>openpyxl 3.1.5
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--td-primary);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:700">Frontend</div>
+        <div style="font-size:13px;line-height:2;color:var(--td-text-muted)">
+          Vanilla JavaScript<br>Socket.IO Client<br>Tailwind CSS (CDN)<br>SweetAlert2<br>Intro.js (onboarding)<br>CSS Variables (theming)
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--td-primary);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:700">Infrastructure</div>
+        <div style="font-size:13px;line-height:2;color:var(--td-text-muted)">
+          SQLite (2 databases)<br>GitHub Actions (cron)<br>cPanel Passenger<br>Google Sheets API<br>Telegram MTProto API<br>Google OAuth 2.0
+        </div>
+      </div>
+    </div>
+    </div></div>
+  </div>
+</section>
+
+
+<!-- ===== SECTION 2: ARCHITECTURE ===== -->
+<section class="section" id="architecture">
+  <div class="section-header">
+    <h2><span class="brand-gradient">System Architecture</span></h2>
+    <p>Full-stack overview: clients, Flask middleware pipeline, feature modules, data stores, and external APIs.</p>
+  </div>
+
+  <!-- Tier 1: Clients -->
+  <div class="arch-tier">
+    <div class="arch-tier-label">Clients</div>
+    <div class="arch-boxes">
+      <div class="arch-box" style="border-top:2px solid var(--td-primary)"><div class="arch-name">Web Dashboard</div><div class="arch-detail">Flask + Jinja2 + SocketIO</div><div class="arch-port">:5000</div></div>
+      <div class="arch-box" style="border-top:2px solid #4ade80"><div class="arch-name">CLI Scraper</div><div class="arch-detail">main.py (headless)</div><div class="arch-port">CLI</div></div>
+      <div class="arch-box" style="border-top:2px solid #c084fc"><div class="arch-name">GitHub Actions</div><div class="arch-detail">Scheduled daily cron</div><div class="arch-port">Cloud</div></div>
+    </div>
+  </div>
+
+  <div style="text-align:center;color:var(--td-text-muted);font-size:20px;margin:6px 0;opacity:.4">&#9660;</div>
+
+  <!-- Tier 2: Flask App -->
+  <div class="arch-tier">
+    <div class="arch-tier-label">Flask Application &mdash; web_app.py</div>
+    <div class="arch-box" style="border-top:2px solid var(--td-primary)">
+      <div class="arch-name">Flask + SocketIO Server</div>
+      <div class="arch-port">:5000</div>
+      <div style="font-size:12px;color:var(--td-text-muted);margin:12px 0 8px;font-weight:600">Request Pipeline:</div>
+      <div class="arch-pipeline">
+        <span class="pipe-step">Cookie Parser</span><span class="pipe-arrow">&rarr;</span>
+        <span class="pipe-step">Session Validate</span><span class="pipe-arrow">&rarr;</span>
+        <span class="pipe-step">@login_required</span><span class="pipe-arrow">&rarr;</span>
+        <span class="pipe-step">@permission_required</span><span class="pipe-arrow">&rarr;</span>
+        <span class="pipe-step">Blueprint Route</span><span class="pipe-arrow">&rarr;</span>
+        <span class="pipe-step">Service Logic</span><span class="pipe-arrow">&rarr;</span>
+        <span class="pipe-step">JSON / Template</span>
+      </div>
+      <div style="font-size:12px;color:var(--td-text-muted);margin:12px 0 8px;font-weight:600">Feature Blueprints:</div>
+      <div class="arch-modules-grid">
+        <div class="arch-module">Auth<span class="mod-prefix">auth_routes</span></div>
+        <div class="arch-module">Admin<span class="mod-prefix">admin_routes</span></div>
+        <div class="arch-module">Profiles<span class="mod-prefix">profile_routes</span></div>
+        <div class="arch-module">Scraper<span class="mod-prefix">scraper_routes</span></div>
+        <div class="arch-module">Settings<span class="mod-prefix">settings_routes</span></div>
+        <div class="arch-module">Google<span class="mod-prefix">google_routes</span></div>
+        <div class="arch-module">Channels<span class="mod-prefix">channel_routes</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center;color:var(--td-text-muted);font-size:20px;margin:6px 0;opacity:.4">&#9660;</div>
+
+  <!-- Tier 3: Core Engine -->
+  <div class="arch-tier">
+    <div class="arch-tier-label">Core Scraping Engine &mdash; src/</div>
+    <div class="arch-boxes">
+      <div class="arch-box" style="border-top:2px solid #38bdf8"><div class="arch-name">scraper.py</div><div class="arch-detail">Telethon MTProto client</div></div>
+      <div class="arch-box" style="border-top:2px solid #4ade80"><div class="arch-name">sheets.py</div><div class="arch-detail">gspread (OAuth + Service Acct)</div></div>
+      <div class="arch-box" style="border-top:2px solid #fbbf24"><div class="arch-name">profiles.py</div><div class="arch-detail">Profile/process/channel mgmt</div></div>
+      <div class="arch-box" style="border-top:2px solid #f472b6"><div class="arch-name">local_db.py</div><div class="arch-detail">SQLite backup + audit</div></div>
+      <div class="arch-box" style="border-top:2px solid #c084fc"><div class="arch-name">local_export.py</div><div class="arch-detail">CSV / JSON / Excel</div></div>
+    </div>
+  </div>
+
+  <div style="text-align:center;color:var(--td-text-muted);font-size:20px;margin:6px 0;opacity:.4">&#9660;</div>
+
+  <!-- Tier 4: Data & External -->
+  <div class="arch-tier">
+    <div class="arch-tier-label">Data Stores &amp; External APIs</div>
+    <div class="arch-boxes">
+      <div class="arch-box" style="border-top:2px solid #fbbf24"><div class="arch-name">scraper.db</div><div class="arch-detail">Messages, audit log, settings</div></div>
+      <div class="arch-box" style="border-top:2px solid #fbbf24"><div class="arch-name">teledrive.db</div><div class="arch-detail">Users, sessions, plans, creds</div></div>
+      <div class="arch-box" style="border-top:2px solid #38bdf8"><div class="arch-name">Telegram API</div><div class="arch-detail">MTProto via Telethon</div></div>
+      <div class="arch-box" style="border-top:2px solid #4ade80"><div class="arch-name">Google Sheets API</div><div class="arch-detail">gspread + google-auth</div></div>
+      <div class="arch-box" style="border-top:2px solid var(--td-primary)"><div class="arch-name">Google OAuth</div><div class="arch-detail">User-level OAuth2 flow</div></div>
+    </div>
+  </div>
+
+  <!-- Scraping Pipeline -->
+  <div style="margin-top:36px">
+    <h3 style="font-size:16px;margin-bottom:14px;font-weight:600">&#9889; Scraping Pipeline (per channel)</h3>
+    <div class="arch-pipeline" style="justify-content:flex-start">
+      <span class="pipe-step" style="border-color:rgba(56,189,248,.3)">Telethon Connect</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Resolve Channel</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Fetch 200 msgs/batch</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Extract Fields (20+)</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Resolve Reactions</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Deduplicate</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step" style="border-color:rgba(251,191,36,.3)">SQLite Backup</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step" style="border-color:rgba(74,222,128,.3)">Push to Sheets</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step" style="border-color:rgba(192,132,252,.3)">Export Files</span>
+    </div>
+    <div style="margin-top:10px;font-size:13px;color:var(--td-text-muted)">Batch delay: 0.3s &middot; Rate limit: 200 msgs/request &middot; Duplicate detection via post_link UNIQUE constraint</div>
+  </div>
+</section>
+
+
+<!-- ===== SECTION 3: DATABASE SCHEMA ===== -->
+<section class="section" id="db-schema">
+  <div class="section-header">
+    <h2><span class="brand-gradient">Database Schema</span></h2>
+    <p>Two SQLite databases: <code>scraper.db</code> for scraped data and <code>teledrive.db</code> for user auth &amp; system settings.</p>
+  </div>
+  <div id="db-content"></div>
+</section>
+
+
+<!-- ===== SECTION 4: API / ROUTES ===== -->
+<section class="section" id="api-ref">
+  <div class="section-header">
+    <h2><span class="brand-gradient">API / Routes Reference</span></h2>
+    <p>All Flask blueprint endpoints grouped by module. All API routes return JSON; page routes return HTML.</p>
+  </div>
+  <div style="margin-bottom:18px">
+    <input type="text" id="api-filter" placeholder="Filter endpoints..." style="width:100%;max-width:400px;padding:10px 16px;background:var(--td-bg-input,var(--td-bg));border:1px solid var(--td-border);border-radius:10px;color:var(--td-text);font-size:14px;outline:none;transition:all .2s" onfocus="this.style.borderColor='var(--td-primary)';this.style.boxShadow='0 0 0 3px rgba(var(--td-primary-rgb),.15)'" onblur="this.style.borderColor='var(--td-border)';this.style.boxShadow='none'">
+  </div>
+  <div id="api-content"></div>
+</section>
+
+
+<!-- ===== SECTION 5: PERMISSIONS ===== -->
+<section class="section" id="permissions">
+  <div class="section-header">
+    <h2><span class="brand-gradient">Role &amp; Permission Matrix</span></h2>
+    <p>Access control across ADMIN, EDITOR, TESTER, and USER roles. Controlled via <code>@permission_required</code> decorator.</p>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="perm-table">
+      <thead>
+        <tr>
+          <th>Action / Feature</th>
+          <th><span class="badge badge-role badge-admin">ADMIN</span></th>
+          <th><span class="badge badge-role badge-editor">EDITOR</span></th>
+          <th><span class="badge badge-role badge-tester">TESTER</span></th>
+          <th><span class="badge badge-role badge-user">USER</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>view_dashboard</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td></tr>
+        <tr><td>run_scraper</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td></tr>
+        <tr><td>manage_profiles</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td></tr>
+        <tr><td>manage_settings</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td></tr>
+        <tr><td>manage_scheduler</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td></tr>
+        <tr><td>test_connections</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-no">&#10007;</td></tr>
+        <tr><td>manage_exports</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td></tr>
+        <tr><td>view_audit</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-no">&#10007;</td></tr>
+        <tr><td>manage_users</td><td class="perm-yes">&#10003;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td></tr>
+        <tr><td>system_settings</td><td class="perm-yes">&#10003;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td></tr>
+        <tr><td>manage_telegram_numbers</td><td class="perm-yes">&#10003;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td></tr>
+        <tr><td>manage_subscription_plans</td><td class="perm-yes">&#10003;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top:24px">
+    <h3>&#128272; Authentication Flow</h3>
+    <div class="arch-pipeline">
+      <span class="pipe-step">POST /auth/login</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">bcrypt verify</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Create session token</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Set td_session cookie (30d)</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Redirect /dashboard</span>
+    </div>
+    <div style="margin-top:12px;font-size:13px;color:var(--td-text-muted)">
+      Cookies: httpOnly &middot; 30-day expiry &middot; Optional secure flag (production) &middot; Google OAuth alternative
+    </div>
+    <div style="margin-top:14px;font-size:12px;color:var(--td-text-muted)">
+      <strong style="color:var(--td-text)">Password Reset:</strong> Email + Security Question &rarr; Validate answer hash &rarr; Reset password (no email sending needed)
+    </div>
+    <div style="margin-top:10px;font-size:13px;color:var(--td-text-muted)">
+      <strong style="color:var(--td-text)">Default Admin:</strong> <code>admin@teledrive.app / admin123</code> (auto-created if DB is empty)
+    </div>
+  </div>
+</section>
+
+
+<!-- ===== SECTION 6: USER JOURNEYS ===== -->
+<section class="section" id="journeys">
+  <div class="section-header">
+    <h2><span class="brand-gradient">User Journeys</span></h2>
+    <p>Step-by-step flows showing how each persona interacts with TeleDrive.</p>
+  </div>
+  <div id="journeys-content"></div>
+</section>
+
+
+<!-- ===== SECTION 7: CUSTOMIZATION ===== -->
+<section class="section" id="customization">
+  <div class="section-header">
+    <h2><span class="brand-gradient">User Customization</span></h2>
+    <p>Everything a program user can change &mdash; their own Telegram API keys, Google Sheets, export preferences, and more.</p>
+  </div>
+
+  <div class="card">
+    <h3>&#128241; Telegram API Credentials</h3>
+    <p style="font-size:14px;color:var(--td-text-muted);margin-bottom:16px">Each user can connect their own Telegram account. Get credentials from <a href="https://my.telegram.org" target="_blank">my.telegram.org</a>.</p>
+    <table class="env-table">
+      <thead><tr><th>Setting</th><th>Where to Set</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="env-key">TG_API_ID</td><td><span class="env-source src-ui">Dashboard</span> or <span class="env-source src-env">.env</span></td><td>Your Telegram API ID (numeric)</td></tr>
+        <tr><td class="env-key">TG_API_HASH</td><td><span class="env-source src-ui">Dashboard</span> or <span class="env-source src-env">.env</span></td><td>Your Telegram API hash (hex string)</td></tr>
+        <tr><td class="env-key">TG_PHONE</td><td><span class="env-source src-ui">Dashboard</span> or <span class="env-source src-env">.env</span></td><td>Phone number with country code</td></tr>
+        <tr><td class="env-key">TG_SESSION</td><td><span class="env-source src-github">GitHub Secret</span></td><td>Base64-encoded .session file for Actions</td></tr>
+      </tbody>
+    </table>
+    <div class="info-box warn" style="margin-top:12px">
+      <strong>Session Generation:</strong> Run <code>python auth_session.py</code> locally, enter the verification code from Telegram, then base64-encode the resulting .session file for GitHub secrets.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>&#128196; Google Sheets Integration</h3>
+    <p style="font-size:14px;color:var(--td-text-muted);margin-bottom:16px">Two methods: per-user OAuth2 (primary) or admin service account (fallback).</p>
+    <div class="grid-2">
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px;color:#4ade80">Per-User OAuth2 (Recommended)</div>
+        <ol style="font-size:13px;color:var(--td-text-muted);line-height:2;padding-left:16px">
+          <li>Admin configures OAuth Client ID &amp; Secret in System Settings</li>
+          <li>User clicks "Connect Google" on Dashboard</li>
+          <li>Redirects to Google login &rarr; authorization</li>
+          <li>Tokens stored in user_credentials table</li>
+          <li>Auto-refresh when expired</li>
+        </ol>
+      </div>
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px;color:#fbbf24">Service Account (Fallback)</div>
+        <ol style="font-size:13px;color:var(--td-text-muted);line-height:2;padding-left:16px">
+          <li>Create Google Cloud project</li>
+          <li>Enable Sheets API &amp; create service account</li>
+          <li>Download JSON key file</li>
+          <li>Set GOOGLE_CREDS_JSON in .env (path) or GOOGLE_CREDS_BASE64</li>
+          <li>Share target sheet with service account email</li>
+        </ol>
+      </div>
+    </div>
+    <table class="env-table" style="margin-top:16px">
+      <thead><tr><th>Setting</th><th>Source</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="env-key">GOOGLE_CREDS_JSON</td><td><span class="env-source src-env">.env</span></td><td>Path to service account JSON key</td></tr>
+        <tr><td class="env-key">GOOGLE_CREDS_BASE64</td><td><span class="env-source src-github">GitHub Secret</span></td><td>Base64-encoded service account JSON (for CI)</td></tr>
+        <tr><td class="env-key">SHEET_ID</td><td><span class="env-source src-env">.env</span> or <span class="env-source src-ui">Per-Profile</span></td><td>Target Google Sheet ID (from URL)</td></tr>
+        <tr><td class="env-key">google_oauth_client_id</td><td><span class="env-source src-db">System Settings</span></td><td>Google OAuth Client ID (admin sets in UI)</td></tr>
+        <tr><td class="env-key">google_oauth_client_secret</td><td><span class="env-source src-db">System Settings</span></td><td>Google OAuth Client Secret (admin sets in UI)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>&#128230; Export Preferences (Per Profile)</h3>
+    <div class="grid-3">
+      <div class="stat-box" style="border-top:2px solid #4ade80"><div style="font-size:13px;font-weight:600">Export Format</div><div style="font-size:11px;color:var(--td-text-muted);margin-top:4px">CSV &middot; JSON &middot; Excel (.xlsx)</div></div>
+      <div class="stat-box" style="border-top:2px solid #fbbf24"><div style="font-size:13px;font-weight:600">Save Location</div><div style="font-size:11px;color:var(--td-text-muted);margin-top:4px">Project &middot; Desktop &middot; Docs &middot; Custom</div></div>
+      <div class="stat-box" style="border-top:2px solid #c084fc"><div style="font-size:13px;font-weight:600">Push to Sheets</div><div style="font-size:11px;color:var(--td-text-muted);margin-top:4px">Per-profile &middot; Own Sheet ID &middot; Tab name</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>&#127912; Theming &amp; Appearance</h3>
+    <p style="font-size:14px;color:var(--td-text-muted);margin-bottom:12px">Admin sets global theme; users can override if <code>allow_user_themes</code> is enabled.</p>
+    <table class="env-table">
+      <thead><tr><th>CSS Variable</th><th>Scope</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="env-key">--td-primary</td><td><span class="env-source src-db">System / User</span></td><td>Primary accent (buttons, links, highlights)</td></tr>
+        <tr><td class="env-key">--td-secondary</td><td><span class="env-source src-db">System / User</span></td><td>Secondary accent (gradients)</td></tr>
+        <tr><td class="env-key">--td-bg</td><td><span class="env-source src-db">System / User</span></td><td>Page background</td></tr>
+        <tr><td class="env-key">--td-bg-card</td><td><span class="env-source src-db">System / User</span></td><td>Card / sidebar background</td></tr>
+        <tr><td class="env-key">--td-text / --td-text-muted</td><td><span class="env-source src-db">System / User</span></td><td>Text colors</td></tr>
+        <tr><td class="env-key">--td-border</td><td><span class="env-source src-db">System / User</span></td><td>Border color</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>&#128176; Subscription Plans</h3>
+    <table class="data-table">
+      <thead><tr><th>Plan</th><th>Price</th><th>Profiles</th><th>Processes</th><th>Msgs/Day</th><th>Excel</th><th>Sheets</th><th>Scheduler</th></tr></thead>
+      <tbody>
+        <tr><td style="color:#4ade80;font-weight:600">Free</td><td>$0</td><td>3</td><td>3</td><td>5,000</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td><td class="perm-no">&#10007;</td></tr>
+        <tr><td style="color:var(--td-primary);font-weight:600">Pro</td><td>$9.99/mo</td><td>20</td><td>10</td><td>50,000</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td></tr>
+        <tr><td style="color:#fbbf24;font-weight:600">Enterprise</td><td>$29.99/mo</td><td>&#8734;</td><td>&#8734;</td><td>500,000</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td><td class="perm-yes">&#10003;</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="accordion">
+    <div class="accordion-header" onclick="this.parentElement.classList.toggle('open')">
+      <h3>&#128290; All Environment Variables <span class="count">12 vars</span></h3>
+      <span class="accordion-chevron">&#9660;</span>
+    </div>
+    <div class="accordion-body"><div class="accordion-content">
+    <table class="env-table">
+      <thead><tr><th>Variable</th><th>Source</th><th>Default</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="env-key">TG_API_ID</td><td><span class="env-source src-env">.env</span></td><td>&mdash;</td><td>Telegram API ID</td></tr>
+        <tr><td class="env-key">TG_API_HASH</td><td><span class="env-source src-env">.env</span></td><td>&mdash;</td><td>Telegram API hash</td></tr>
+        <tr><td class="env-key">TG_PHONE</td><td><span class="env-source src-env">.env</span></td><td>&mdash;</td><td>Telegram phone number</td></tr>
+        <tr><td class="env-key">TG_SESSION_NAME</td><td><span class="env-source src-env">.env</span></td><td>scraper_session</td><td>Session file prefix</td></tr>
+        <tr><td class="env-key">GOOGLE_CREDS_JSON</td><td><span class="env-source src-env">.env</span></td><td>&mdash;</td><td>Path to service account JSON</td></tr>
+        <tr><td class="env-key">SHEET_ID</td><td><span class="env-source src-env">.env</span></td><td>&mdash;</td><td>Default Google Sheet ID</td></tr>
+        <tr><td class="env-key">SECRET_KEY</td><td><span class="env-source src-env">.env</span></td><td>teledrive-dev-...</td><td>Flask session secret key</td></tr>
+        <tr><td class="env-key">FLASK_DEBUG</td><td><span class="env-source src-env">.env</span></td><td>1</td><td>Enable debug mode</td></tr>
+        <tr><td class="env-key">FLASK_ENV</td><td><span class="env-source src-env">.env</span></td><td>development</td><td>production or development</td></tr>
+        <tr><td class="env-key">PORT</td><td><span class="env-source src-env">.env</span></td><td>5000</td><td>Web server port</td></tr>
+        <tr><td class="env-key">COOKIE_SECURE</td><td><span class="env-source src-env">.env</span></td><td>auto</td><td>true in production, false in dev</td></tr>
+        <tr><td class="env-key">CORS_ORIGIN</td><td><span class="env-source src-env">.env</span></td><td>*</td><td>Allowed CORS origin</td></tr>
+      </tbody>
+    </table>
+    </div></div>
+  </div>
+</section>
+
+
+<!-- ===== SECTION 8: CRON & GITHUB ===== -->
+<section class="section" id="cron-github">
+  <div class="section-header">
+    <h2><span class="brand-gradient">Cron Jobs &amp; GitHub Actions</span></h2>
+    <p>Two scheduling mechanisms: GitHub Actions for cloud-based cron, and APScheduler for the web app's built-in scheduler.</p>
+  </div>
+
+  <div class="card">
+    <h3>&#128736; GitHub Actions Workflow</h3>
+    <p style="font-size:14px;color:var(--td-text-muted);margin-bottom:16px">File: <code>.github/workflows/daily-scrape.yml</code></p>
+    <div class="cron-box">
+      <div class="cron-expression">0 5 * * *</div>
+      <div class="cron-desc">Daily at <strong>05:00 UTC</strong> (08:00 UTC+3). Also supports manual trigger via <code>workflow_dispatch</code>.</div>
+    </div>
+    <div style="font-size:14px;font-weight:600;margin-bottom:8px;margin-top:16px">Workflow Steps:</div>
+    <div class="arch-pipeline">
+      <span class="pipe-step">Checkout repo</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Setup Python 3.11</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">pip install</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Decode TG_SESSION (base64)</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Run main.py</span>
+    </div>
+    <div style="font-size:13px;font-weight:600;margin:20px 0 8px">Required GitHub Secrets:</div>
+    <table class="env-table">
+      <thead><tr><th>Secret</th><th>Value</th><th>Source</th></tr></thead>
+      <tbody>
+        <tr><td class="env-key">TG_API_ID</td><td>Your Telegram API ID</td><td>my.telegram.org</td></tr>
+        <tr><td class="env-key">TG_API_HASH</td><td>Your Telegram API hash</td><td>my.telegram.org</td></tr>
+        <tr><td class="env-key">TG_PHONE</td><td>Phone number (+country code)</td><td>Your phone</td></tr>
+        <tr><td class="env-key">TG_SESSION</td><td>Base64-encoded .session file</td><td>python auth_session.py</td></tr>
+        <tr><td class="env-key">GOOGLE_CREDS</td><td>Base64-encoded service-account.json</td><td>Google Cloud Console</td></tr>
+        <tr><td class="env-key">SHEET_ID</td><td>Google Sheet ID from URL</td><td>Sheet URL</td></tr>
+      </tbody>
+    </table>
+    <div class="info-box info" style="margin-top:16px">
+      <strong>How to encode the session:</strong>
+      <code style="font-size:10px;display:block;margin-top:4px">python -c "import base64; print(base64.b64encode(open('scraper_session.session','rb').read()).decode())"</code>
+    </div>
+    <div class="info-box warn" style="margin-top:8px">
+      <strong>Limits:</strong> 30 min timeout per job &middot; 2,000 free minutes/month &middot; Runs headless via main.py (CLI mode)
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>&#128338; Built-in Web Scheduler (APScheduler)</h3>
+    <p style="font-size:14px;color:var(--td-text-muted);margin-bottom:16px">Runs APScheduler in-process for scheduling scrapes without GitHub.</p>
+    <div class="grid-2">
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px">Cron Mode</div>
+        <div style="font-size:13px;color:var(--td-text-muted);line-height:1.8">Run scrapes at a specific time daily.<br>Config saved to <code>scheduler_config.json</code></div>
+      </div>
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px">Interval Mode</div>
+        <div style="font-size:13px;color:var(--td-text-muted);line-height:1.8">Run scrapes every N hours.<br>Thread-safe with locks.</div>
+      </div>
+    </div>
+    <div class="info-box success" style="margin-top:16px">
+      <strong>Per-Process Scheduling:</strong> Each process can have its own schedule (schedule_time, schedule_interval_hours) and daily limits to prevent Telegram bans.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>&#128640; Deployment (cPanel Passenger)</h3>
+    <div class="arch-pipeline">
+      <span class="pipe-step">Detect virtualenv</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Load .env</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">FLASK_ENV=production</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Init scheduler</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Session cleanup (6h)</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Export application</span>
+    </div>
+    <div style="margin-top:10px;font-size:13px;color:var(--td-text-muted)">
+      Virtualenv: <code>~/virtualenv/teledrive/3.11/bin/python</code> &middot; Scheduler persists across reloads
+    </div>
+  </div>
+</section>
+
+
+<!-- ===== SECTION 9: UNDER THE HOOD ===== -->
+<section class="section" id="under-hood">
+  <div class="section-header">
+    <h2><span class="brand-gradient">Under the Hood</span></h2>
+    <p>Internal mechanics: Telethon connection, duplicate detection, rate limiting, SocketIO real-time updates, and safety thresholds.</p>
+  </div>
+
+  <div class="card">
+    <h3>&#128225; Telegram MTProto Connection</h3>
+    <div class="grid-2">
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px">Session Management</div>
+        <div style="font-size:13px;color:var(--td-text-muted);line-height:1.8">
+          Telethon creates a <code>.session</code> SQLite file storing auth keys.<br>
+          Session persists across runs. One phone = one session.<br>
+          Backup numbers tracked in <code>telegram_numbers</code> table.
+        </div>
+      </div>
+      <div>
+        <div style="font-size:14px;font-weight:600;margin-bottom:8px">Message Extraction (20+ fields)</div>
+        <div style="font-size:13px;color:var(--td-text-muted);line-height:1.8">
+          text, msg_id, date_utc, time_utc, views, forwards, replies_count<br>
+          reactions (emoji + counts), reactions_sum, media_type<br>
+          urls, url_count, hashtags, mentions, is_forward, fwd_from_name, post_link
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>&#9889; Rate Limiting &amp; Safety</h3>
+    <div class="grid-3">
+      <div class="info-box success"><strong>Safe Zone</strong>&lt;50K msgs/day &middot; &lt;20 channels &middot; 2&ndash;3 scrapes/day</div>
+      <div class="info-box warn"><strong>Risky Zone</strong>&gt;100K msgs/day &middot; &gt;50 channels &middot; &gt;10 scrapes/day</div>
+      <div class="info-box danger"><strong>Critical Zone</strong>1M+ msgs rapidly &middot; Account ban risk &middot; Permanent restrictions</div>
+    </div>
+    <table class="env-table" style="margin-top:14px">
+      <thead><tr><th>Parameter</th><th>Value</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td class="env-key">Batch Size</td><td>200 messages</td><td>Per Telethon request</td></tr>
+        <tr><td class="env-key">Batch Delay</td><td>0.3 seconds</td><td>Pause between batches</td></tr>
+        <tr><td class="env-key">Daily Limit</td><td>Per-process</td><td>Max msgs/day/process (configurable)</td></tr>
+        <tr><td class="env-key">FloodWait</td><td>Auto-retry</td><td>Telethon handles backoff (5&ndash;600s)</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3>&#128260; Duplicate Detection</h3>
+    <div style="font-size:13px;color:var(--td-text-muted);line-height:1.8">
+      <strong style="color:var(--td-text)">SQLite:</strong> <code>post_link</code> UNIQUE constraint &mdash; duplicates silently fail (INSERT OR IGNORE).<br>
+      <strong style="color:var(--td-text)">Sheets:</strong> Checks existing post_link column before appending. Only new messages added.<br>
+      <strong style="color:var(--td-text)">Process:</strong> <code>scraped_messages</code> tracks (channel_username, message_id) with UNIQUE constraint.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>&#128225; Real-Time Updates (SocketIO)</h3>
+    <div class="arch-pipeline">
+      <span class="pipe-step">Scraper starts</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">emit('scrape_log')</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">WebSocket to browser</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Append to live log</span><span class="pipe-arrow">&rarr;</span>
+      <span class="pipe-step">Update progress bar</span>
+    </div>
+    <div style="margin-top:10px;font-size:13px;color:var(--td-text-muted)">async_mode: threading &middot; CORS: configurable &middot; Used for scrape progress, status updates, errors</div>
+  </div>
+
+  <div class="card">
+    <h3>&#128451; Google Sheets Internals</h3>
+    <div style="font-size:13px;color:var(--td-text-muted);line-height:1.8">
+      <strong style="color:var(--td-text)">Structure:</strong> One tab per channel (auto-created if missing).<br>
+      <strong style="color:var(--td-text)">Headers:</strong> scrape_date, channel, username, msg_id, date_utc, time_utc, text, views, forwards, replies_count, reactions, reactions_sum, media_type, urls, url_count, hashtags, mentions, is_forward, fwd_from_name, post_link<br>
+      <strong style="color:var(--td-text)">Dual Auth:</strong> Service account (fallback) + per-user OAuth2 tokens.<br>
+      <strong style="color:var(--td-text)">Limits:</strong> Max 10M cells/sheet &middot; 300 req/min API quota (free tier).
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>&#128202; Audit Logging</h3>
+    <div style="font-size:13px;color:var(--td-text-muted);line-height:1.8">
+      Every action logged to <code>audit_log</code> in scraper.db.<br>
+      <strong style="color:var(--td-text)">Tracked:</strong> logins, scrapes, profile changes, errors, settings, exports.<br>
+      <strong style="color:var(--td-text)">Fields:</strong> timestamp, action, details (JSON), status, user_id, user_email.
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>&#128274; Security Features</h3>
+    <div class="grid-2">
+      <div style="font-size:13px;color:var(--td-text-muted);line-height:2">
+        &#10003; bcrypt password hashing (bcrypt 4.2.1)<br>
+        &#10003; httpOnly session cookies (30-day expiry)<br>
+        &#10003; CSRF protection (OAuth state validation)<br>
+        &#10003; Role-based access control (4 roles)<br>
+        &#10003; Security questions for password reset
+      </div>
+      <div style="font-size:13px;color:var(--td-text-muted);line-height:2">
+        &#10003; User approval workflow (optional)<br>
+        &#10003; App kill switch (app_enabled flag)<br>
+        &#10003; Session cleanup every 6 hours<br>
+        &#10003; Per-user credential isolation<br>
+        &#10003; Telegram backup numbers for failover
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+// ============================================================
+// DATA LAYER
+// ============================================================
+
+const DB_TABLES = {
+  messages:{db:'scraper.db',group:'data',columns:[
+    {name:'id',type:'INTEGER',pk:true,note:'autoincrement'},
+    {name:'scrape_date',type:'TEXT'},{name:'channel',type:'TEXT'},{name:'username',type:'TEXT'},
+    {name:'msg_id',type:'INTEGER'},{name:'date_utc',type:'TEXT'},{name:'time_utc',type:'TEXT'},
+    {name:'text',type:'TEXT'},{name:'views',type:'INTEGER'},{name:'forwards',type:'INTEGER'},
+    {name:'replies_count',type:'INTEGER'},{name:'reactions',type:'TEXT'},{name:'reactions_sum',type:'INTEGER'},
+    {name:'media_type',type:'TEXT'},{name:'urls',type:'TEXT'},{name:'url_count',type:'INTEGER'},
+    {name:'hashtags',type:'TEXT'},{name:'mentions',type:'TEXT'},{name:'is_forward',type:'BOOLEAN'},
+    {name:'fwd_from_name',type:'TEXT'},{name:'post_link',type:'TEXT',unique:true},
+    {name:'synced_to_sheets',type:'BOOLEAN',default:'false'},{name:'created_at',type:'TIMESTAMP'}
+  ]},
+  audit_log:{db:'scraper.db',group:'system',columns:[
+    {name:'id',type:'INTEGER',pk:true},{name:'timestamp',type:'TIMESTAMP'},
+    {name:'action',type:'TEXT'},{name:'details',type:'TEXT',note:'JSON'},
+    {name:'status',type:'TEXT'},{name:'user_id',type:'TEXT'},{name:'user_email',type:'TEXT'}
+  ]},
+  settings:{db:'scraper.db',group:'system',columns:[
+    {name:'key',type:'TEXT',pk:true},{name:'value',type:'TEXT'},{name:'updated_at',type:'TIMESTAMP'}
+  ]},
+  profiles:{db:'scraper.db',group:'config',columns:[
+    {name:'id',type:'INTEGER',pk:true},{name:'name',type:'TEXT'},{name:'channel_username',type:'TEXT'},
+    {name:'channel_title',type:'TEXT'},{name:'description',type:'TEXT'},
+    {name:'export_format',type:'TEXT',note:'csv|json|xlsx'},{name:'export_location',type:'TEXT'},
+    {name:'export_custom_path',type:'TEXT',nullable:true},
+    {name:'push_to_sheets',type:'BOOLEAN',default:'false'},{name:'is_active',type:'BOOLEAN',default:'true'},
+    {name:'user_id',type:'TEXT',fk:'users.id'},{name:'channel_id',type:'INTEGER',fk:'channels.id'},
+    {name:'sheet_id',type:'TEXT',nullable:true},{name:'sheet_tab_name',type:'TEXT',nullable:true},
+    {name:'created_at',type:'TIMESTAMP'},{name:'updated_at',type:'TIMESTAMP'}
+  ]},
+  processes:{db:'scraper.db',group:'config',columns:[
+    {name:'id',type:'INTEGER',pk:true},{name:'profile_id',type:'INTEGER',fk:'profiles.id'},
+    {name:'name',type:'TEXT'},{name:'process_type',type:'TEXT',note:'manual|scheduled|continuous'},
+    {name:'from_date',type:'TEXT'},{name:'to_date',type:'TEXT'},{name:'hours_back',type:'INTEGER'},
+    {name:'daily_limit',type:'INTEGER'},{name:'batch_delay',type:'REAL'},
+    {name:'schedule_enabled',type:'BOOLEAN'},{name:'schedule_time',type:'TEXT'},
+    {name:'schedule_interval_hours',type:'INTEGER'},
+    {name:'status',type:'TEXT'},{name:'messages_scraped',type:'INTEGER'},
+    {name:'last_message_id',type:'INTEGER'},{name:'today_scraped',type:'INTEGER'},
+    {name:'created_at',type:'TIMESTAMP'},{name:'updated_at',type:'TIMESTAMP'},
+    {name:'last_run_at',type:'TIMESTAMP'},{name:'next_run_at',type:'TIMESTAMP'},
+    {name:'error_message',type:'TEXT',nullable:true}
+  ]},
+  scraped_messages:{db:'scraper.db',group:'data',columns:[
+    {name:'id',type:'INTEGER',pk:true},{name:'profile_id',type:'INTEGER',fk:'profiles.id'},
+    {name:'process_id',type:'INTEGER',fk:'processes.id'},{name:'channel_username',type:'TEXT'},
+    {name:'message_id',type:'INTEGER'},{name:'message_date',type:'TEXT'}
+  ],note:'UNIQUE(channel_username, message_id)'},
+  channels:{db:'scraper.db',group:'config',columns:[
+    {name:'id',type:'INTEGER',pk:true},{name:'username',type:'TEXT'},{name:'title',type:'TEXT'},
+    {name:'description',type:'TEXT'},{name:'is_verified',type:'BOOLEAN'},
+    {name:'member_count',type:'INTEGER'},{name:'last_scraped_at',type:'TIMESTAMP'},
+    {name:'created_at',type:'TIMESTAMP'},{name:'updated_at',type:'TIMESTAMP'},{name:'created_by',type:'TEXT'}
+  ]},
+  users:{db:'teledrive.db',group:'auth',columns:[
+    {name:'id',type:'TEXT',pk:true},{name:'email',type:'TEXT',unique:true},
+    {name:'password_hash',type:'TEXT'},{name:'name',type:'TEXT'},
+    {name:'avatar_url',type:'TEXT',nullable:true},{name:'role',type:'TEXT',note:'admin|editor|tester|user'},
+    {name:'auth_provider',type:'TEXT',note:'email|google'},{name:'google_id',type:'TEXT',nullable:true},
+    {name:'is_active',type:'BOOLEAN'},{name:'subscription_plan',type:'TEXT'},
+    {name:'created_at',type:'TIMESTAMP'},{name:'updated_at',type:'TIMESTAMP'},
+    {name:'last_login_at',type:'TIMESTAMP'},{name:'status',type:'TEXT'},
+    {name:'security_question',type:'TEXT'},{name:'security_answer_hash',type:'TEXT'}
+  ]},
+  sessions:{db:'teledrive.db',group:'auth',columns:[
+    {name:'id',type:'TEXT',pk:true},{name:'user_id',type:'TEXT',fk:'users.id'},
+    {name:'token',type:'TEXT',unique:true},{name:'expires_at',type:'TIMESTAMP'},
+    {name:'created_at',type:'TIMESTAMP'}
+  ],note:'30-day expiry, httpOnly cookies'},
+  user_credentials:{db:'teledrive.db',group:'auth',columns:[
+    {name:'id',type:'INTEGER',pk:true},{name:'user_id',type:'TEXT',fk:'users.id'},
+    {name:'credential_type',type:'TEXT'},{name:'credential_key',type:'TEXT'},
+    {name:'credential_value',type:'TEXT'}
+  ],note:'UNIQUE(user_id, credential_type, credential_key)'},
+  subscription_plans:{db:'teledrive.db',group:'system',columns:[
+    {name:'id',type:'INTEGER',pk:true},{name:'name',type:'TEXT',unique:true},
+    {name:'display_name',type:'TEXT'},{name:'description',type:'TEXT'},
+    {name:'price',type:'REAL'},{name:'currency',type:'TEXT'},{name:'interval',type:'TEXT'},
+    {name:'max_profiles',type:'INTEGER'},{name:'max_processes',type:'INTEGER'},
+    {name:'max_messages_per_day',type:'INTEGER'},
+    {name:'can_export_excel',type:'BOOLEAN'},{name:'can_push_sheets',type:'BOOLEAN'},
+    {name:'can_schedule',type:'BOOLEAN'},{name:'is_active',type:'BOOLEAN'},
+    {name:'sort_order',type:'INTEGER'}
+  ]},
+  system_settings:{db:'teledrive.db',group:'system',columns:[
+    {name:'key',type:'TEXT',pk:true},{name:'value',type:'TEXT'},{name:'updated_at',type:'TIMESTAMP'}
+  ],note:'Theme, registration, OAuth config'},
+  telegram_numbers:{db:'teledrive.db',group:'config',columns:[
+    {name:'id',type:'INTEGER',pk:true},{name:'phone',type:'TEXT'},{name:'session_name',type:'TEXT'},
+    {name:'api_id',type:'TEXT'},{name:'api_hash',type:'TEXT'},
+    {name:'is_primary',type:'BOOLEAN'},{name:'is_active',type:'BOOLEAN'},
+    {name:'last_used_at',type:'TIMESTAMP'},{name:'last_error',type:'TEXT'},
+    {name:'fail_count',type:'INTEGER'},{name:'created_at',type:'TIMESTAMP'}
+  ]}
+};
+
+const GROUP_COLORS = {data:'var(--td-primary)',auth:'#c084fc',config:'#4ade80',system:'#fbbf24'};
+
+const API_ROUTES = {
+  'Auth (auth_routes)':{color:'#c084fc',endpoints:[
+    {method:'GET',path:'/auth/login',desc:'Login page'},
+    {method:'POST',path:'/auth/login',desc:'Authenticate user (email + password)'},
+    {method:'GET',path:'/auth/register',desc:'Registration page'},
+    {method:'POST',path:'/auth/register',desc:'Create new account'},
+    {method:'POST',path:'/auth/logout',desc:'Destroy session, clear cookie'},
+    {method:'GET',path:'/auth/forgot-password',desc:'Password reset page'},
+    {method:'POST',path:'/auth/forgot-password',desc:'Validate security question & reset'},
+    {method:'GET',path:'/auth/google',desc:'Initiate Google OAuth flow'},
+    {method:'GET',path:'/auth/google/callback',desc:'Google OAuth callback handler'},
+  ]},
+  'Admin (admin_routes)':{color:'#f87171',endpoints:[
+    {method:'GET',path:'/admin',desc:'Admin panel page (admin only)'},
+    {method:'GET',path:'/admin/users',desc:'List all users with roles'},
+    {method:'POST',path:'/admin/users/<id>/role',desc:'Change user role'},
+    {method:'POST',path:'/admin/users/<id>/status',desc:'Activate/deactivate user'},
+    {method:'POST',path:'/admin/users/<id>/delete',desc:'Delete user account'},
+    {method:'GET',path:'/admin/settings',desc:'Get system settings'},
+    {method:'POST',path:'/admin/settings',desc:'Update system settings'},
+    {method:'GET',path:'/admin/plans',desc:'List subscription plans'},
+    {method:'POST',path:'/admin/plans',desc:'Create/update plan'},
+    {method:'GET',path:'/admin/telegram-numbers',desc:'List backup Telegram numbers'},
+    {method:'POST',path:'/admin/telegram-numbers',desc:'Add/update Telegram number'},
+  ]},
+  'Profiles (profile_routes)':{color:'#4ade80',endpoints:[
+    {method:'GET',path:'/api/profiles',desc:'List all profiles for current user'},
+    {method:'POST',path:'/api/profiles',desc:'Create new scraping profile'},
+    {method:'PUT',path:'/api/profiles/<id>',desc:'Update profile settings'},
+    {method:'DELETE',path:'/api/profiles/<id>',desc:'Delete profile'},
+    {method:'GET',path:'/api/profiles/<id>/processes',desc:'List processes for profile'},
+    {method:'POST',path:'/api/profiles/<id>/processes',desc:'Create process under profile'},
+    {method:'PUT',path:'/api/processes/<id>',desc:'Update process settings'},
+    {method:'DELETE',path:'/api/processes/<id>',desc:'Delete process'},
+  ]},
+  'Scraper (scraper_routes)':{color:'#38bdf8',endpoints:[
+    {method:'POST',path:'/api/scrape',desc:'Start scraping (channel, dates, options)'},
+    {method:'POST',path:'/api/scrape/process/<id>',desc:'Run a specific process'},
+    {method:'GET',path:'/api/scrape/status',desc:'Get current scrape status'},
+    {method:'POST',path:'/api/scrape/stop',desc:'Stop running scrape'},
+    {method:'GET',path:'/api/scheduler',desc:'Get scheduler config'},
+    {method:'POST',path:'/api/scheduler',desc:'Update scheduler (enable/disable/config)'},
+    {method:'POST',path:'/api/scheduler/run-now',desc:'Trigger immediate scheduler run'},
+  ]},
+  'Settings (settings_routes)':{color:'#fbbf24',endpoints:[
+    {method:'GET',path:'/api/settings/credentials',desc:'Get user credentials (masked)'},
+    {method:'POST',path:'/api/settings/credentials',desc:'Save Telegram/Google creds'},
+    {method:'POST',path:'/api/settings/test-telegram',desc:'Test Telegram connection'},
+    {method:'POST',path:'/api/settings/test-sheets',desc:'Test Google Sheets connection'},
+    {method:'GET',path:'/api/settings/theme',desc:'Get current theme'},
+    {method:'POST',path:'/api/settings/theme',desc:'Update user theme'},
+  ]},
+  'Google (google_routes)':{color:'#4ade80',endpoints:[
+    {method:'GET',path:'/google/auth',desc:'Start Google OAuth for Sheets access'},
+    {method:'GET',path:'/google/callback',desc:'OAuth callback, store tokens'},
+    {method:'GET',path:'/google/sheets',desc:'List user\'s Google Sheets'},
+    {method:'POST',path:'/google/disconnect',desc:'Revoke Google tokens'},
+  ]},
+  'Channels (channel_routes)':{color:'#c084fc',endpoints:[
+    {method:'GET',path:'/api/channels',desc:'List saved channels'},
+    {method:'POST',path:'/api/channels',desc:'Add new channel'},
+    {method:'DELETE',path:'/api/channels/<id>',desc:'Remove channel'},
+    {method:'POST',path:'/api/channels/verify',desc:'Verify channel exists on Telegram'},
+  ]},
+  'Pages (web_app.py)':{color:'#94a3b8',endpoints:[
+    {method:'GET',path:'/',desc:'Landing page (or redirect to dashboard)'},
+    {method:'GET',path:'/dashboard',desc:'Main dashboard (login required)'},
+    {method:'GET',path:'/setup-guide',desc:'Admin setup wizard'},
+    {method:'GET',path:'/dev-visualizer',desc:'This page (dev reference)'},
+  ]},
+};
+
+const JOURNEYS = [
+  {
+    title:'New User Onboarding',
+    subtitle:'From first visit to first scrape',
+    steps:[
+      {icon:'&#127760;',title:'Visit Landing',api:'GET /',desc:'See product overview'},
+      {icon:'&#128221;',title:'Register',api:'POST /auth/register',desc:'Email + password + security Q'},
+      {icon:'&#128274;',title:'Login',api:'POST /auth/login',desc:'Get session cookie (30d)'},
+      {icon:'&#9881;',title:'Add TG Keys',api:'POST /api/settings/credentials',desc:'TG_API_ID, hash, phone'},
+      {icon:'&#128279;',title:'Connect Google',api:'GET /google/auth',desc:'OAuth2 flow for Sheets'},
+      {icon:'&#128195;',title:'Create Profile',api:'POST /api/profiles',desc:'Channel + export settings'},
+      {icon:'&#9889;',title:'First Scrape',api:'POST /api/scrape',desc:'Watch live logs via SocketIO'},
+      {icon:'&#128196;',title:'View Results',desc:'Google Sheet or export file'}
+    ]
+  },
+  {
+    title:'Admin Setup',
+    subtitle:'Configure platform for all users',
+    steps:[
+      {icon:'&#128274;',title:'Login as Admin',api:'POST /auth/login',desc:'admin@teledrive.app'},
+      {icon:'&#9881;',title:'System Settings',api:'POST /admin/settings',desc:'Theme, registration, OAuth'},
+      {icon:'&#128176;',title:'Configure Plans',api:'POST /admin/plans',desc:'Free/Pro/Enterprise limits'},
+      {icon:'&#128241;',title:'Add TG Numbers',api:'POST /admin/telegram-numbers',desc:'Backup phones for failover'},
+      {icon:'&#128101;',title:'Manage Users',api:'GET /admin/users',desc:'Approve, roles, deactivate'},
+      {icon:'&#128338;',title:'Setup Scheduler',api:'POST /api/scheduler',desc:'Daily cron or interval'},
+    ]
+  },
+  {
+    title:'GitHub Actions (CI/CD)',
+    subtitle:'Automated daily cloud scraping',
+    steps:[
+      {icon:'&#128230;',title:'Push to GitHub',desc:'Code + workflow file'},
+      {icon:'&#128273;',title:'Set Secrets',desc:'TG creds, GOOGLE_CREDS, SHEET_ID'},
+      {icon:'&#9200;',title:'Cron Fires',desc:'0 5 * * * (daily 05:00 UTC)'},
+      {icon:'&#128187;',title:'Ubuntu Runner',desc:'Python 3.11 + pip install'},
+      {icon:'&#128274;',title:'Restore Session',desc:'Base64 decode .session file'},
+      {icon:'&#9889;',title:'Run main.py',desc:'Scrape from channels.json'},
+      {icon:'&#128196;',title:'Data in Sheets',desc:'Appended to Google Sheet tabs'}
+    ]
+  }
+];
+
+// ============================================================
+// RENDER: DATABASE SCHEMA
+// ============================================================
+function renderDB(){
+  const el=document.getElementById('db-content');let html='';
+  const grouped={};
+  for(const[tbl,info]of Object.entries(DB_TABLES)){
+    const key=info.db;if(!grouped[key])grouped[key]=[];
+    grouped[key].push({name:tbl,...info});
+  }
+  for(const[db,tables]of Object.entries(grouped)){
+    html+=`<h3 style="font-size:16px;margin:24px 0 14px;font-weight:700"><span class="brand-gradient">${db}</span> <span style="font-size:12px;color:var(--td-text-muted);font-weight:400">(${tables.length} tables)</span></h3>`;
+    for(const tbl of tables){
+      const color=GROUP_COLORS[tbl.group]||'var(--td-text-muted)';
+      html+=`<div class="accordion">
+        <div class="accordion-header" onclick="this.parentElement.classList.toggle('open')">
+          <h3><span style="color:${color};font-size:10px">&#9679;</span> ${tbl.name} <span class="count">${tbl.columns.length} cols</span></h3>
+          <span class="accordion-chevron">&#9660;</span>
+        </div>
+        <div class="accordion-body"><div class="accordion-content">
+          ${tbl.note?`<div style="font-size:12px;color:#fbbf24;margin-bottom:8px">${tbl.note}</div>`:''}
+          <table class="data-table"><thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Note</th></tr></thead><tbody>`;
+      for(const col of tbl.columns){
+        let tags='';
+        if(col.pk)tags+='<span class="constraint-tag pk-tag">PK</span>';
+        if(col.fk)tags+=`<span class="constraint-tag fk-tag">FK &rarr; ${col.fk}</span>`;
+        if(col.unique)tags+='<span class="constraint-tag unique-tag">UNIQUE</span>';
+        if(col.nullable)tags+='<span class="constraint-tag" style="color:#fbbf24;background:rgba(245,158,11,.08)">NULL</span>';
+        if(col.default)tags+=`<span class="constraint-tag" style="color:var(--td-text-muted);background:rgba(var(--td-primary-rgb),.04)">= ${col.default}</span>`;
+        html+=`<tr><td style="font-family:'Cascadia Code','Fira Code',monospace;font-size:12px">${col.name}</td><td><span class="type-tag">${col.type}</span></td><td>${tags}</td><td style="font-size:11px;color:var(--td-text-muted)">${col.note||''}</td></tr>`;
+      }
+      html+='</tbody></table></div></div></div>';
+    }
+  }
+  el.innerHTML=html;
+}
+
+// ============================================================
+// RENDER: API ROUTES
+// ============================================================
+function renderAPI(){
+  const el=document.getElementById('api-content');let html='';
+  for(const[group,info]of Object.entries(API_ROUTES)){
+    html+=`<div class="accordion api-group">
+      <div class="accordion-header" onclick="this.parentElement.classList.toggle('open')">
+        <h3><span style="color:${info.color};font-size:10px">&#9679;</span> ${group} <span class="count">${info.endpoints.length} endpoints</span></h3>
+        <span class="accordion-chevron">&#9660;</span>
+      </div>
+      <div class="accordion-body"><div class="accordion-content">`;
+    for(const ep of info.endpoints){
+      const mc=ep.method.toLowerCase();
+      const pathHtml=ep.path.replace(/<([^>]+)>/g,'<span class="param">:$1</span>');
+      html+=`<div class="endpoint-row">
+        <span class="method method-${mc}">${ep.method}</span>
+        <span class="endpoint-path">${pathHtml}</span>
+        <span class="endpoint-desc">${ep.desc}</span>
+      </div>`;
+    }
+    html+='</div></div></div>';
+  }
+  el.innerHTML=html;
+}
+
+// ============================================================
+// RENDER: JOURNEYS
+// ============================================================
+function renderJourneys(){
+  const el=document.getElementById('journeys-content');let html='';
+  for(const j of JOURNEYS){
+    html+=`<div class="journey-container">
+      <div class="journey-title">${j.title}</div>
+      <div class="journey-subtitle">${j.subtitle}</div>
+      <div class="journey-timeline">`;
+    j.steps.forEach((s,i)=>{
+      if(i>0)html+='<div class="journey-connector"></div>';
+      html+=`<div class="journey-step visible">
+        <div class="step-icon">${s.icon}</div>
+        <div class="step-title">${s.title}</div>
+        ${s.api?`<div class="step-api">${s.api}</div>`:''}
+        <div class="step-desc">${s.desc}</div>
+      </div>`;
+    });
+    html+='</div></div>';
+  }
+  el.innerHTML=html;
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+document.querySelectorAll('.nav-item').forEach(item=>{
+  item.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    item.classList.add('active');
+    document.getElementById(item.dataset.section)?.scrollIntoView({behavior:'smooth'});
+  });
+});
+
+document.addEventListener('keydown',e=>{
+  if(e.target.tagName==='INPUT')return;
+  const sections=['overview','architecture','db-schema','api-ref','permissions','journeys','customization','cron-github','under-hood'];
+  const num=parseInt(e.key);
+  if(num>=1&&num<=9){
+    document.getElementById(sections[num-1])?.scrollIntoView({behavior:'smooth'});
+    document.querySelectorAll('.nav-item').forEach((n,i)=>{n.classList.toggle('active',i===num-1)});
+  }
+  if(e.key==='/'){e.preventDefault();toggleSearch(true)}
+  if(e.key==='Escape')toggleSearch(false);
+});
+
+const observer=new IntersectionObserver(entries=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      const id=entry.target.id;
+      document.querySelectorAll('.nav-item').forEach(n=>{
+        n.classList.toggle('active',n.dataset.section===id);
+      });
+    }
+  });
+},{threshold:.3});
+document.querySelectorAll('.section').forEach(s=>observer.observe(s));
+
+// ============================================================
+// SEARCH
+// ============================================================
+function toggleSearch(show){
+  document.getElementById('global-search').classList.toggle('visible',show);
+  if(show)document.getElementById('search-input').focus();
+  else{document.getElementById('search-input').value='';document.querySelectorAll('.search-hidden').forEach(el=>el.classList.remove('search-hidden'))}
+}
+document.getElementById('search-input')?.addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase();
+  document.querySelectorAll('.accordion').forEach(acc=>{
+    acc.classList.toggle('search-hidden',q&&!acc.textContent.toLowerCase().includes(q));
+  });
+});
+document.getElementById('api-filter')?.addEventListener('input',e=>{
+  const q=e.target.value.toLowerCase();
+  document.querySelectorAll('.api-group .endpoint-row').forEach(row=>{
+    row.style.display=(!q||row.textContent.toLowerCase().includes(q))?'':'none';
+  });
+});
+
+// ============================================================
+// INIT
+// ============================================================
+renderDB();
+renderAPI();
+renderJourneys();
+</script>
+</body>
+</html>

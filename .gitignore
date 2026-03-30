@@ -1,11 +1,32 @@
+# Environment & secrets
 .env
 *.session
 *.session-journal
 service-account.json
 n8n-telegram-scrapper-*.json
 *_SECRET.txt
+*_CLEAN.txt
 github_secrets.txt
+
+# Google credentials (block all JSON except app config)
+*.json
+!package.json
+!package-lock.json
+!launch.json
+!channels.json
+!scheduler_config.json
+!.claude/settings.local.json
+
+# Database files (contain user data & tokens)
+data/*.db
+data/*.db-journal
+
+# Python
 __pycache__/
 *.pyc
 .venv/
 venv/
+
+# IDE
+.vscode/
+.idea/
