@@ -276,7 +276,8 @@ def api_test_telegram_number(num_id):
     api_hash = num.get("api_hash") or TG_API_HASH
     try:
         loop = _asyncio.new_event_loop()
-        client = TelegramClient(num["session_name"], int(api_id), api_hash)
+        from src.config import get_session_path
+        client = TelegramClient(get_session_path(num["session_name"]), int(api_id), api_hash)
         loop.run_until_complete(client.start(phone=num["phone"]))
         me = loop.run_until_complete(client.get_me())
         loop.run_until_complete(client.disconnect())

@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Blueprint, render_template, request, jsonify
 
-from src.config import TG_API_ID, TG_API_HASH, TG_PHONE, TG_SESSION_NAME, SHEET_ID, GOOGLE_CREDS_JSON
+from src.config import TG_API_ID, TG_API_HASH, TG_PHONE, TG_SESSION_NAME, SHEET_ID, GOOGLE_CREDS_JSON, get_session_path
 from src.auth import get_user_credential, set_user_credential, get_user_credentials
 from src.local_db import (
     get_setting, set_setting, get_local_message_count,
@@ -106,7 +106,7 @@ def api_get_user_creds():
             result[key] = val
             result[key + "_set"] = bool(val)
     session_name = get_user_credential(user["id"], "telegram", "session_name", f"td_user_{user['id']}")
-    result["tg_session_exists"] = Path(session_name + ".session").exists()
+    result["tg_session_exists"] = Path(get_session_path(session_name) + ".session").exists()
     return jsonify(result)
 
 
@@ -150,7 +150,7 @@ def api_user_test_telegram():
         return jsonify({"success": False, "error": "Telegram credentials not configured. Add your API ID, API Hash, and phone number first."})
     try:
         loop = _asyncio.new_event_loop()
-        client = TelegramClient(session, int(api_id), api_hash)
+        client = TelegramClient(get_session_path(session), int(api_id), api_hash)
         loop.run_until_complete(client.start(phone=phone))
         me = loop.run_until_complete(client.get_me())
         loop.run_until_complete(client.disconnect())
@@ -212,7 +212,7 @@ def api_get_accounts():
         else:
             result[key] = val
             result[key + "_set"] = bool(val)
-    result["tg_session_exists"] = Path(get_setting("tg_session_name", TG_SESSION_NAME) + ".session").exists()
+    result["tg_session_exists"] = Path(get_session_path(get_setting("tg_session_name", TG_SESSION_NAME)) + ".session").exists()
     return jsonify(result)
 
 
@@ -249,7 +249,7 @@ def api_test_telegram():
         return jsonify({"success": False, "error": "Telegram credentials not configured"})
     try:
         loop = _asyncio.new_event_loop()
-        client = TelegramClient(session, int(api_id), api_hash)
+        client = TelegramClient(get_session_path(session), int(api_id), api_hash)
         loop.run_until_complete(client.start(phone=phone))
         me = loop.run_until_complete(client.get_me())
         loop.run_until_complete(client.disconnect())

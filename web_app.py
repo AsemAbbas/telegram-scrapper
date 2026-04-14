@@ -15,7 +15,7 @@ from flask_socketio import SocketIO, emit
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-from src.config import load_channels, TG_API_ID, TG_API_HASH, TG_PHONE, TG_SESSION_NAME, SHEET_ID, GOOGLE_CREDS_JSON
+from src.config import load_channels, TG_API_ID, TG_API_HASH, TG_PHONE, TG_SESSION_NAME, SHEET_ID, GOOGLE_CREDS_JSON, get_session_path
 from src.sheets import push_to_sheets
 from src.local_db import (
     log_audit, get_audit_log, clear_audit_log,
@@ -51,10 +51,17 @@ from telethon import TelegramClient
 from telethon.tl import types
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'teledrive-dev-only-change-in-production')
-IS_PRODUCTION = os.getenv('FLASK_ENV') == 'production' or not os.getenv('FLASK_DEBUG')
+_secret = os.getenv('SECRET_KEY')
+IS_PRODUCTION = os.getenv('FLASK_ENV') == 'production' or os.getenv('FLASK_DEBUG', '1') == '0'
+if IS_PRODUCTION and not _secret:
+    raise RuntimeError(
+        "SECRET_KEY environment variable is required in production. "
+        "Generate one with: python3 -c \"import secrets; print(secrets.token_hex(32))\""
+    )
+app.config['SECRET_KEY'] = _secret or 'teledrive-dev-only-change-in-production'
 COOKIE_SECURE = os.getenv('COOKIE_SECURE', 'true' if IS_PRODUCTION else 'false') == 'true'
-socketio = SocketIO(app, cors_allowed_origins=os.getenv('CORS_ORIGIN', '*'), async_mode='threading')
+_cors_default = '*' if not IS_PRODUCTION else None
+socketio = SocketIO(app, cors_allowed_origins=os.getenv('CORS_ORIGIN', _cors_default), async_mode='threading')
 
 # Threading lock for scraper state
 scrape_lock = threading.Lock()
@@ -1268,7 +1275,7 @@ def api_get_user_creds():
             result[key + "_set"] = bool(val)
     # Check if Telegram session exists for this user
     session_name = get_user_credential(user["id"], "telegram", "session_name", f"td_user_{user['id']}")
-    result["tg_session_exists"] = Path(session_name + ".session").exists()
+    result["tg_session_exists"] = Path(get_session_path(session_name) + ".session").exists()
     return jsonify(result)
 
 
@@ -1304,7 +1311,7 @@ def api_user_test_telegram():
         return jsonify({"success": False, "error": "Telegram credentials not configured. Add your API ID, API Hash, and phone number first."})
     try:
         loop = _asyncio.new_event_loop()
-        client = TelegramClient(session, int(api_id), api_hash)
+        client = TelegramClient(get_session_path(session), int(api_id), api_hash)
         loop.run_until_complete(client.start(phone=phone))
         me = loop.run_until_complete(client.get_me())
         loop.run_until_complete(client.disconnect())
@@ -1664,7 +1671,7 @@ def api_get_accounts():
             result[key] = val
             result[key + "_set"] = bool(val)
     # Add connection status flags
-    result["tg_session_exists"] = Path(get_setting("tg_session_name", TG_SESSION_NAME) + ".session").exists()
+    result["tg_session_exists"] = Path(get_session_path(get_setting("tg_session_name", TG_SESSION_NAME)) + ".session").exists()
     return jsonify(result)
 
 
@@ -1698,7 +1705,7 @@ def api_test_telegram():
         return jsonify({"success": False, "error": "Telegram credentials not configured"})
     try:
         loop = _asyncio.new_event_loop()
-        client = TelegramClient(session, int(api_id), api_hash)
+        client = TelegramClient(get_session_path(session), int(api_id), api_hash)
         loop.run_until_complete(client.start(phone=phone))
         me = loop.run_until_complete(client.get_me())
         loop.run_until_complete(client.disconnect())

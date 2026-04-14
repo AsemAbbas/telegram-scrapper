@@ -1,0 +1,28 @@
+[Unit]
+Description=TeleDrive - Telegram Channel Intelligence
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=teledrive
+Group=teledrive
+WorkingDirectory=/opt/teledrive
+EnvironmentFile=/opt/teledrive/.env
+ExecStart=/opt/teledrive/venv/bin/gunicorn -c gunicorn.conf.py "web_app:app"
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=teledrive
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/teledrive/data /opt/teledrive/exports
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

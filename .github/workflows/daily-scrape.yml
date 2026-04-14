@@ -32,7 +32,8 @@ jobs:
           TG_SESSION: ${{ secrets.TG_SESSION }}
           TG_SESSION_NAME: scraper_session
         run: |
-          echo "$TG_SESSION" | base64 -d > ${TG_SESSION_NAME}.session
+          mkdir -p data
+          echo "$TG_SESSION" | base64 -d > data/${TG_SESSION_NAME}.session
 
       - name: Run scraper
         env:

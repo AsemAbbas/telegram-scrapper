@@ -19,12 +19,16 @@ except ImportError:
 # Default export directory
 DEFAULT_EXPORT_DIR = Path(__file__).parent.parent / "exports"
 
-# Common save locations
+# Common save locations (desktop/documents only added if they exist on this OS)
 SAVE_LOCATIONS = {
     "default": DEFAULT_EXPORT_DIR,
-    "desktop": Path.home() / "Desktop",
-    "documents": Path.home() / "Documents",
 }
+_desktop = Path.home() / "Desktop"
+_documents = Path.home() / "Documents"
+if _desktop.exists():
+    SAVE_LOCATIONS["desktop"] = _desktop
+if _documents.exists():
+    SAVE_LOCATIONS["documents"] = _documents
 
 
 def get_save_path(location: str = "default", custom_path: str = None) -> Path:

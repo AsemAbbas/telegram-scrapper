@@ -7,12 +7,26 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ═══════════════════════════════════════════════════════════════
+# Paths
+# ═══════════════════════════════════════════════════════════════
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CHANNELS_FILE = PROJECT_ROOT / "channels.json"
+DATA_DIR = PROJECT_ROOT / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+# ═══════════════════════════════════════════════════════════════
 # Telegram API
 # ═══════════════════════════════════════════════════════════════
 TG_API_ID = int(os.getenv("TG_API_ID", "0"))
 TG_API_HASH = os.getenv("TG_API_HASH", "")
 TG_PHONE = os.getenv("TG_PHONE", "")
-TG_SESSION_NAME = os.getenv("TG_SESSION_NAME", "scraper_session")
+
+# Session name resolves to data/ directory so sessions aren't scattered in CWD
+_raw_session_name = os.getenv("TG_SESSION_NAME", "scraper_session")
+if os.path.isabs(_raw_session_name):
+    TG_SESSION_NAME = _raw_session_name
+else:
+    TG_SESSION_NAME = str(DATA_DIR / _raw_session_name)
 
 # ═══════════════════════════════════════════════════════════════
 # Google Sheets
@@ -20,11 +34,14 @@ TG_SESSION_NAME = os.getenv("TG_SESSION_NAME", "scraper_session")
 GOOGLE_CREDS_JSON = os.getenv("GOOGLE_CREDS_JSON", "service-account.json")
 SHEET_ID = os.getenv("SHEET_ID", "")
 
-# ═══════════════════════════════════════════════════════════════
-# Paths
-# ═══════════════════════════════════════════════════════════════
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
-CHANNELS_FILE = PROJECT_ROOT / "channels.json"
+
+def get_session_path(session_name: str) -> str:
+    """Return absolute path for a Telethon session file (without .session extension).
+    If session_name is already absolute, return as-is. Otherwise resolve to data/ directory.
+    """
+    if os.path.isabs(session_name):
+        return session_name
+    return str(DATA_DIR / session_name)
 
 
 def load_channels():
